@@ -256,7 +256,7 @@ fn load_model_or_skip<T>(result: Result<T, ModelLoadError>) -> Option<T> {
         }))) if cfg!(feature = "load-dynamic") => {
             eprintln!("skipping model-loading test because ORT_DYLIB_PATH is not configured");
             None
-        }
+        },
         Err(error) => panic!("failed to load model: {error}"),
     }
 }
@@ -269,7 +269,7 @@ fn build_pipeline_or_skip<T>(result: Result<T, PipelineError>) -> Option<T> {
         )))) if cfg!(feature = "load-dynamic") => {
             eprintln!("skipping pipeline test because ORT_DYLIB_PATH is not configured");
             None
-        }
+        },
         Err(error) => panic!("failed to build pipeline: {error}"),
     }
 }

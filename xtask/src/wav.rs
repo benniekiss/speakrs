@@ -52,7 +52,7 @@ pub fn load_wav_samples(path: &str) -> Result<(Vec<f32>, u32)> {
                 channels = Some(chunk_channels);
                 sample_rate = Some(chunk_sample_rate);
                 bits_per_sample = Some(chunk_bits_per_sample);
-            }
+            },
             b"data" => {
                 let sample_rate = sample_rate.ok_or_else(|| {
                     color_eyre::eyre::eyre!("fmt chunk must appear before data chunk")
@@ -82,10 +82,10 @@ pub fn load_wav_samples(path: &str) -> Result<(Vec<f32>, u32)> {
                 }
 
                 return Ok((samples, sample_rate));
-            }
+            },
             _ => {
                 reader.seek(SeekFrom::Current(chunk_size as i64))?;
-            }
+            },
         }
 
         if chunk_size % 2 == 1 {

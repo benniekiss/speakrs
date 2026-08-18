@@ -47,7 +47,7 @@ pub fn post_inference(
     let discrete_diarization = match config.reconstruct_method {
         ReconstructMethod::Smoothed { epsilon } => {
             reconstructor.reconstruct_smoothed(&speaker_count, epsilon)
-        }
+        },
         ReconstructMethod::Standard => reconstructor.reconstruct(&speaker_count),
     };
 

@@ -60,7 +60,7 @@ impl CompareRunner {
             Self::Command(command_spec) => {
                 let mut command = command_spec.build_command();
                 capture_benchmark_cmd(&mut command, Duration::from_secs(30 * 60))
-            }
+            },
             Self::FluidAudio {
                 fluidaudio_path,
                 wav_path,
@@ -85,14 +85,14 @@ impl<'a> CompareRecorder<'a> {
                     result.mean_seconds, result.min_seconds
                 );
                 self.results.push(CompareOutcome::Completed(result));
-            }
+            },
             Err(err) => {
                 println!("  {name}: FAILED ({err})");
                 self.results.push(CompareOutcome::Failed {
                     name: name.to_string(),
                     reason: err.to_string(),
                 });
-            }
+            },
         }
     }
 }
@@ -249,7 +249,7 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
                         timeline_overlap_pct(reference, &run.rttm)
                             .map(|pct| format!("{pct:.1}%"))
                             .unwrap_or_else(|| "N/A".to_string())
-                    }
+                    },
                     _ => "N/A".to_string(),
                 };
 
@@ -257,19 +257,19 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
                     "{:<name_width$} {:>9} {:>9} {:>9} {:>9} {:>10}  ok",
                     run.name, mean_str, min_str, speakers_str, segments_str, parity_str
                 );
-            }
+            },
             CompareOutcome::Skipped { name, reason } => {
                 println!(
                     "{:<name_width$} {:>9} {:>9} {:>9} {:>9} {:>10}  skipped ({reason})",
                     name, "—", "—", "—", "—", "N/A"
                 );
-            }
+            },
             CompareOutcome::Failed { name, reason } => {
                 println!(
                     "{:<name_width$} {:>9} {:>9} {:>9} {:>9} {:>10}  failed ({reason})",
                     name, "—", "—", "—", "—", "N/A"
                 );
-            }
+            },
         }
     }
 

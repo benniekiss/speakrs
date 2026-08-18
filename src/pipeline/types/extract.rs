@@ -45,17 +45,17 @@ impl DecodedSegmentations {
         match embedding_path {
             EmbeddingPath::MultiMask => {
                 self.extract_multi_mask_embeddings(audio, emb_model, layout, &mut embeddings)?
-            }
+            },
             EmbeddingPath::Split => {
                 self.extract_split_embeddings(audio, emb_model, layout, &mut embeddings)?
-            }
+            },
             EmbeddingPath::Masked => {
                 if emb_model.prefers_chunk_embedding_path() {
                     self.extract_chunk_embeddings(audio, emb_model, layout, &mut embeddings)?;
                 } else {
                     self.extract_masked_embeddings(audio, emb_model, layout, &mut embeddings)?;
                 }
-            }
+            },
         }
 
         Ok(ChunkEmbeddings(embeddings))

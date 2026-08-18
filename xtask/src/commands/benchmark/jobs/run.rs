@@ -129,7 +129,7 @@ pub fn run_benchmark_job(
         let benchmark_result = match impl_type {
             ImplType::Speakrs(mode) => {
                 run_speakrs_gpu(&config.models_dir, &files, mode, progress_cb)
-            }
+            },
             ImplType::Pyannote(device) => BatchCommandRunner::pyannote(
                 &config.root,
                 device,
@@ -149,7 +149,7 @@ pub fn run_benchmark_job(
                 );
                 all_results.insert(impl_name.to_string(), result);
                 continue;
-            }
+            },
         };
 
         let benchmark_output = match benchmark_result {
@@ -166,7 +166,7 @@ pub fn run_benchmark_job(
                 );
                 all_results.insert(impl_name.to_string(), result);
                 continue;
-            }
+            },
         };
 
         let acc = DerAccumulation::compute(&files, &benchmark_output.per_file_rttm)?;

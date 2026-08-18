@@ -216,7 +216,7 @@ impl CompareCmd {
             Self::Rttm { a, b } => commands::compare::rttm(&a, &b),
             Self::Accuracy { source, rust_mode } => {
                 commands::compare::accuracy(&source, &rust_mode)
-            }
+            },
         }
     }
 }
@@ -430,7 +430,7 @@ impl DatasetCmd {
                     ds.ensure(&base_dir)?;
                 }
                 Ok(())
-            }
+            },
             Self::Upload { id } => {
                 if !S5cmd::available() {
                     color_eyre::eyre::bail!("s5cmd not available or AWS_ACCESS_KEY_ID not set");
@@ -459,7 +459,7 @@ impl DatasetCmd {
                     S5cmd::upload(&ds.id, &ds_dir)?;
                 }
                 Ok(())
-            }
+            },
         }
     }
 }

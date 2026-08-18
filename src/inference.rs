@@ -245,7 +245,7 @@ pub(crate) fn with_execution_mode_options(
         ExecutionMode::WebGpu => {
             Ok(builder
                 .with_execution_providers([ep::WebGPU::default().build().error_on_failure()])?)
-        }
+        },
 
         #[cfg(not(all(
             feature = "coreml",
@@ -255,7 +255,7 @@ pub(crate) fn with_execution_mode_options(
         )))]
         _ => {
             unreachable!("mode validation failed without the `{mode}` feature")
-        }
+        },
     }
 }
 

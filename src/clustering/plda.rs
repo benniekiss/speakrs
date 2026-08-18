@@ -105,7 +105,7 @@ fn read_array1_f64(path: impl AsRef<Path>) -> Result<Array1<f64>, PldaError> {
         Err(ndarray_npy::ReadNpyError::WrongDescriptor(_)) => {
             let values: Array1<f32> = read_npy(path)?;
             Ok(values.mapv(|value| value as f64))
-        }
+        },
         Err(err) => Err(PldaError::Io(err)),
     }
 }
@@ -117,7 +117,7 @@ fn read_array2_f64(path: impl AsRef<Path>) -> Result<Array2<f64>, PldaError> {
         Err(ndarray_npy::ReadNpyError::WrongDescriptor(_)) => {
             let values: Array2<f32> = read_npy(path)?;
             Ok(values.mapv(|value| value as f64))
-        }
+        },
         Err(err) => Err(PldaError::Io(err)),
     }
 }

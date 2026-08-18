@@ -417,7 +417,7 @@ impl<'a> PipelineRunner<'a> {
                 ),
                 EmbeddingPath::Masked => {
                     concurrent_embedding_runner.run_masked(rx, self.emb_model, batch_size)
-                }
+                },
             };
 
             let segmentation_result =

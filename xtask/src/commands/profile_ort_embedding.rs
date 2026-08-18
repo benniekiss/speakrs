@@ -278,7 +278,7 @@ fn run_one_embedding(
                 .run(ort::inputs!["waveform" => waveform, "weights" => weights])
                 .map_err(ort_err)?;
             let _ = outputs[0].try_extract_tensor::<f32>().map_err(ort_err)?;
-        }
+        },
         "owned" | "stream-owned" => {
             let waveform = Tensor::from_array(waveform_buffer.clone()).map_err(ort_err)?;
             let weights = Tensor::from_array(weights_buffer.clone()).map_err(ort_err)?;
@@ -286,7 +286,7 @@ fn run_one_embedding(
                 .run(ort::inputs!["waveform" => waveform, "weights" => weights])
                 .map_err(ort_err)?;
             let _ = outputs[0].try_extract_tensor::<f32>().map_err(ort_err)?;
-        }
+        },
         "prealloc" | "stream-prealloc" => {
             let waveform = TensorRef::from_array_view(waveform_buffer.view()).map_err(ort_err)?;
             let weights = TensorRef::from_array_view(weights_buffer.view()).map_err(ort_err)?;
@@ -297,7 +297,7 @@ fn run_one_embedding(
                 )
                 .map_err(ort_err)?;
             let _ = outputs[0].try_extract_tensor::<f32>().map_err(ort_err)?;
-        }
+        },
         _ => unreachable!("unknown mode"),
     }
 

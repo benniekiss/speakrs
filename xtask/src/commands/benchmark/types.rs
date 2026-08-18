@@ -271,7 +271,7 @@ impl BatchCommandRunner {
                         total_seconds: output.elapsed_seconds,
                         per_file_rttm: split_rttm_by_file_id(&output.rttm),
                     });
-                }
+                },
                 Err(err) => {
                     let is_timeout = err
                         .downcast_ref::<BenchmarkError>()
@@ -284,7 +284,7 @@ impl BatchCommandRunner {
                         attempt + 1,
                         MAX_RETRIES + 1
                     );
-                }
+                },
             }
         }
         unreachable!()

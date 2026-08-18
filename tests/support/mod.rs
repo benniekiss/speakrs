@@ -22,7 +22,9 @@ pub fn load_wav_samples(path: &Path) -> (Vec<f32>, u32) {
         let chunk_size = u32::from_le_bytes(data[pos + 4..pos + 8].try_into().unwrap()) as usize;
         if chunk_id == b"data" {
             let samples = data[pos + 8..pos + 8 + chunk_size]
-                .as_chunks::<2>().0.iter()
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|bytes| i16::from_le_bytes([bytes[0], bytes[1]]) as f32 / 32768.0)
                 .collect();
             return (samples, sample_rate);
@@ -42,7 +44,7 @@ pub fn load_model_or_skip<T>(result: Result<T, ModelLoadError>) -> Option<T> {
         }))) if cfg!(feature = "load-dynamic") => {
             eprintln!("skipping model-loading test because ORT_DYLIB_PATH is not configured");
             None
-        }
+        },
         Err(error) => panic!("failed to load model: {error}"),
     }
 }
@@ -55,7 +57,7 @@ pub fn build_pipeline_or_skip<T>(result: Result<T, PipelineError>) -> Option<T> 
         )))) if cfg!(feature = "load-dynamic") => {
             eprintln!("skipping pipeline test because ORT_DYLIB_PATH is not configured");
             None
-        }
+        },
         Err(error) => panic!("failed to build pipeline: {error}"),
     }
 }

@@ -97,10 +97,10 @@ impl std::fmt::Display for BenchmarkError {
         match self {
             Self::Timeout { program, timeout } => {
                 write!(f, "{program} timed out after {}s", timeout.as_secs())
-            }
+            },
             Self::ProcessFailed { program, status } => {
                 write!(f, "{program} failed with {status}")
-            }
+            },
             Self::Other(error) => write!(f, "{error}"),
         }
     }
@@ -156,12 +156,12 @@ pub fn capture_benchmark_cmd(cmd: &mut Command, timeout: Duration) -> Result<Sin
                 elapsed_seconds: elapsed,
                 rttm: String::from_utf8_lossy(&stdout_bytes).to_string(),
             })
-        }
+        },
         None => {
             let _ = child.kill();
             let _ = child.wait();
             drop(reader);
             Err(BenchmarkError::Timeout { program, timeout }.into())
-        }
+        },
     }
 }

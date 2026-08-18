@@ -212,16 +212,16 @@ impl QueueReceiver {
             Ok(()) => {
                 self.state = QueueReceiverState::Closed;
                 QueueError::Closed
-            }
+            },
             Err(QueueError::WorkerPanicked(message)) => {
                 self.state = QueueReceiverState::WorkerPanicked(message.clone());
                 QueueError::WorkerPanicked(message)
-            }
+            },
             Err(err) => {
                 let message = err.to_string();
                 self.state = QueueReceiverState::Terminal(message);
                 err
-            }
+            },
         }
     }
 
@@ -231,7 +231,7 @@ impl QueueReceiver {
             QueueReceiverState::Closed => QueueError::Closed,
             QueueReceiverState::WorkerPanicked(message) => {
                 QueueError::WorkerPanicked(message.clone())
-            }
+            },
             QueueReceiverState::Terminal(message) => QueueError::Terminal(message.clone()),
         }
     }
@@ -261,7 +261,7 @@ impl Iterator for QueueReceiverIter {
             Err(err) => {
                 self.yielded_terminal_error = true;
                 Some(Err(err))
-            }
+            },
         }
     }
 }
@@ -351,7 +351,7 @@ fn process_batch(
                     result: pipeline.run_with_config(&req.audio, &req.file_id, config),
                 })
                 .collect()
-        }
+        },
     }
 }
 

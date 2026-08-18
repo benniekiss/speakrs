@@ -130,7 +130,7 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
     match mode {
         ExecutionMode::Cpu => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
-        }
+        },
         ExecutionMode::Cuda
         | ExecutionMode::MiGraphX
         | ExecutionMode::CoreMl
@@ -143,7 +143,7 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
             files.push("wespeaker-multimask-tail-b32.onnx".to_string());
             // batched embedding model
             files.push("wespeaker-voxceleb-resnet34-b64.onnx".to_string());
-        }
+        },
     }
 
     files

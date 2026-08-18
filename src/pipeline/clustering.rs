@@ -432,7 +432,7 @@ mod tests {
                         expected[..],
                         "speaker {speaker_idx}: mask mismatch"
                     );
-                }
+                },
             }
         }
     }

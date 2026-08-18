@@ -48,7 +48,9 @@ pub fn load_wav_samples(path: &Path) -> ExampleResult<Vec<f32>> {
 
         if chunk_id == b"data" {
             let samples = data[pos + 8..pos + 8 + chunk_size]
-                .as_chunks::<2>().0.iter()
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .map(|bytes| i16::from_le_bytes([bytes[0], bytes[1]]) as f32 / 32768.0)
                 .collect();
             return Ok(samples);

@@ -114,7 +114,7 @@ pub fn run(
             let wav_path = wav_files[0].to_string_lossy();
             let output = run_pyannote_sidecar(device.as_str(), &wav_path)?;
             print!("{output}");
-        }
+        },
         DiarizeMode::Speakrs(speakrs_mode) => {
             let execution_mode = speakrs_mode.execution_mode();
 
@@ -221,7 +221,7 @@ pub fn run(
                 total_ms = command_start.elapsed().as_millis(),
                 "Command timing",
             );
-        }
+        },
     }
 
     Ok(())

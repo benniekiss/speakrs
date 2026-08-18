@@ -105,7 +105,7 @@ impl<'a> DerBenchEnv<'a> {
                     wav_paths,
                 )
                 .run_with_retries(timeout)
-            }
+            },
             ImplType::SpeakerKitBench => {
                 let bench_dir = self.speakerkit_bench_dir();
                 self.build_swift_bench(&bench_dir)?;
@@ -114,7 +114,7 @@ impl<'a> DerBenchEnv<'a> {
                     wav_paths,
                 )
                 .run_with_retries(timeout)
-            }
+            },
             ImplType::PyannoteRs => PyannoteRsFileRunner::new(
                 self.pyannote_rs_binary(),
                 self.seg_model.to_path_buf(),
@@ -136,7 +136,7 @@ impl<'a> DerBenchEnv<'a> {
             ImplType::Pyannote(_) => {
                 (!self.root.join("scripts/pyannote-bench/diarize.py").exists())
                     .then(|| "scripts/pyannote-bench/diarize.py not found".to_string())
-            }
+            },
             ImplType::Speakrs(mode) => {
                 #[cfg(not(target_os = "macos"))]
                 if mode.starts_with("coreml") {
@@ -144,15 +144,15 @@ impl<'a> DerBenchEnv<'a> {
                 }
                 let _ = mode;
                 None
-            }
+            },
             ImplType::FluidAudioBench => {
                 (!self.fluidaudio_bench_dir().join("Package.swift").exists())
                     .then(|| "scripts/fluidaudio-bench/Package.swift not found".to_string())
-            }
+            },
             ImplType::SpeakerKitBench => {
                 (!self.speakerkit_bench_dir().join("Package.swift").exists())
                     .then(|| "scripts/speakerkit-bench/Package.swift not found".to_string())
-            }
+            },
             ImplType::PyannoteRs => {
                 let pyannote_rs_binary = self.pyannote_rs_binary();
                 if !pyannote_rs_binary.exists() {
@@ -170,7 +170,7 @@ impl<'a> DerBenchEnv<'a> {
                 } else {
                     None
                 }
-            }
+            },
         }
     }
 }
@@ -243,7 +243,7 @@ pub(super) fn run_der_implementations(ctx: &DerRunContext<'_>) -> Result<DerResu
                 write_impl_result(ctx.run_dir, impl_name, &result, ctx.total_audio_seconds);
                 all_results.insert(impl_name.to_string(), result);
                 continue;
-            }
+            },
         };
 
         let acc = DerAccumulation::compute(ctx.files, &benchmark_output.per_file_rttm)?;

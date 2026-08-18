@@ -51,17 +51,17 @@ pub(super) fn preflight_check(
                     "  {display_name:<22} ok ({:.1}s)",
                     batch_output.total_seconds
                 );
-            }
+            },
             Ok(_) => {
                 let reason = "empty RTTM output".to_string();
                 println!("  {display_name:<22} FAILED: {reason}");
                 failures.insert(display_name.to_string(), reason);
-            }
+            },
             Err(err) => {
                 let reason = err.to_string();
                 println!("  {display_name:<22} FAILED: {reason}");
                 failures.insert(display_name.to_string(), reason);
-            }
+            },
         }
     }
 

@@ -248,11 +248,11 @@ impl S5cmd {
                     println!("{dataset_id}: s5cmd download incomplete, falling back");
                     Ok(false)
                 }
-            }
+            },
             Err(e) => {
                 println!("{dataset_id}: s5cmd failed ({e}), falling back to direct download");
                 Ok(false)
-            }
+            },
         }
     }
 }
