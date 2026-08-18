@@ -41,11 +41,6 @@ enum Command {
         #[command(subcommand)]
         cmd: BenchCmd,
     },
-    /// Remote GPU benchmarks via dstack
-    Dstack {
-        #[command(subcommand)]
-        cmd: DstackCmd,
-    },
     /// Dataset commands
     Dataset {
         #[command(subcommand)]
@@ -107,7 +102,6 @@ impl Command {
             Self::Fixtures { cmd } => cmd.run(),
             Self::Compare { cmd } => cmd.run(),
             Self::Bench { cmd } => cmd.run(),
-            Self::Dstack { cmd } => cmd.run(),
             Self::Dataset { cmd } => cmd.run(),
             Self::Diarize {
                 mode,
@@ -388,53 +382,6 @@ enum DstackCmd {
         /// S3 path to delete
         path: String,
     },
-}
-
-impl DstackCmd {
-    fn run(self) -> Result<()> {
-        match self {
-            Self::Bench {
-                name,
-                dataset,
-                impls,
-                max_files,
-                max_minutes,
-                reuse,
-                detach,
-            } => commands::dstack::bench(
-                &name,
-                &dataset,
-                &impls,
-                max_files,
-                max_minutes,
-                reuse,
-                detach,
-            ),
-            Self::BenchParallel {
-                name,
-                dataset,
-                impls,
-                max_files,
-                max_minutes,
-                reuse,
-            } => commands::dstack::bench_parallel(
-                &name,
-                &dataset,
-                &impls,
-                max_files,
-                max_minutes,
-                reuse,
-            ),
-            Self::Fleet => commands::dstack::fleet(),
-            Self::Attach { name } => commands::dstack::attach(&name),
-            Self::Logs { name } => commands::dstack::logs(&name),
-            Self::Ps => commands::dstack::ps(),
-            Self::Stop { name } => commands::dstack::stop(&name),
-            Self::Dev => commands::dstack::dev(),
-            Self::Download { name } => commands::dstack::download(&name),
-            Self::Delete { path } => commands::dstack::delete(&path),
-        }
-    }
 }
 
 #[derive(Subcommand)]
