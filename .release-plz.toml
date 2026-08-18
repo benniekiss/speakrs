@@ -1,0 +1,9 @@
+[workspace]
+release = false
+publish = false
+
+[[package]]
+name = "speakrs"
+release = false
+publish = false
+publish_features = ["default"]

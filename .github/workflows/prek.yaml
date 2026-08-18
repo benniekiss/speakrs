@@ -1,0 +1,20 @@
+name: Prek
+
+on:
+  workflow_dispatch:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  prek:
+    # Do not run on release-plz PRs
+    if: github.head_ref == '' || !startsWith(github.head_ref, 'release-plz-')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Run prek
+        uses: j178/prek-action@4e14d07f9231acabce116ccfca13b13dd9755ece # v3.0.0

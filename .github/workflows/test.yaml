@@ -1,0 +1,27 @@
+name: Tests
+
+on:
+  workflow_dispatch:
+
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  cargo-test:
+    # Do not run if no packages were changed or on release-plz PRs
+    if: needs.filters.outputs.packages != '[]' && (github.head_ref == '' || !startsWith(github.head_ref, 'release-plz-'))
+    name: cargo tests
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+
+      - name: Setup Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
+
+      - name: Run tests
+        env:
+          RUST_BACKTRACE: full
+        run: cargo test
