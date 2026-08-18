@@ -1,4 +1,4 @@
-use crate::inference::{CoreMlComputeUnits, ExecutionMode};
+use crate::inference::ExecutionMode;
 use crate::pipeline::{AhcConfig, BinarizeConfig, VbxConfig};
 
 /// How to map cluster assignments back to per-frame speaker activations
@@ -44,30 +44,6 @@ impl Default for PipelineConfig {
     }
 }
 
-impl PipelineConfig {
-    /// Mode-specific defaults. Fast modes use min-duration filtering to remove
-    /// single-frame speaker flicker from the larger step size.
-    pub fn for_mode(mode: ExecutionMode) -> Self {
-        match mode {
-            ExecutionMode::CoreMlFast | ExecutionMode::CudaFast => Self {
-                binarize: BinarizeConfig {
-                    min_duration_on: 3,
-                    min_duration_off: 3,
-                    ..BinarizeConfig::default()
-                },
-                // fast modes use 3 VBx iterations to avoid posterior overfitting
-                // on 2 second step embeddings
-                vbx: VbxConfig {
-                    max_iters: 3,
-                    ..VbxConfig::default()
-                },
-                ..Self::default()
-            },
-            _ => Self::default(),
-        }
-    }
-}
-
 /// Runtime configuration for the diarization pipeline
 ///
 /// Controls execution parameters that do not affect correctness but do affect performance.
@@ -75,15 +51,12 @@ impl PipelineConfig {
 pub struct RuntimeConfig {
     /// Number of chunk embedding workers
     pub chunk_emb_workers: usize,
-    /// CoreML compute units for chunk embedding sessions
-    pub chunk_emb_compute_units: CoreMlComputeUnits,
 }
 
 impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
             chunk_emb_workers: 1,
-            chunk_emb_compute_units: CoreMlComputeUnits::All,
         }
     }
 }
@@ -91,7 +64,6 @@ impl Default for RuntimeConfig {
 /// Segmentation step size in seconds for the selected execution mode
 pub const fn segmentation_step_seconds(mode: ExecutionMode) -> f64 {
     match mode {
-        ExecutionMode::CoreMlFast | ExecutionMode::CudaFast => FAST_SEGMENTATION_STEP_SECONDS,
         ExecutionMode::CoreMl => COREML_SEGMENTATION_STEP_SECONDS,
         ExecutionMode::Cuda => CUDA_SEGMENTATION_STEP_SECONDS,
         ExecutionMode::MiGraphX => CUDA_SEGMENTATION_STEP_SECONDS,

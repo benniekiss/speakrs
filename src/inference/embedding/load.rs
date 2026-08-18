@@ -21,12 +21,11 @@ impl EmbeddingModel {
     pub fn with_mode_and_config(
         model_path: impl AsRef<Path>,
         mode: ExecutionMode,
-        config: &crate::pipeline::RuntimeConfig,
     ) -> Result<Self, ModelLoadError> {
         mode.validate()?;
         ensure_ort_ready()?;
 
         let model_path = model_path.as_ref();
-        LoadedSessions::load(model_path, mode, config)?.into_model(model_path)
+        LoadedSessions::load(model_path, mode)?.into_model(model_path)
     }
 }

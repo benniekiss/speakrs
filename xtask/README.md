@@ -45,7 +45,6 @@ cargo xtask bench der --file path/to/audio.wav --rttm path/to/ref.rttm --impls s
 | `pcpu` | `pyannote-cpu` | pyannote CPU |
 | `pg` | `pyannote-cuda` | pyannote CUDA |
 | `scm` | `coreml` | speakrs CoreML |
-| `scmf` | `coreml-fast` | speakrs CoreML Fast |
 | `sg` | `cuda` | speakrs CUDA |
 | `scpu` | `cpu` | speakrs CPU |
 | `fa` | `fluidaudio` | FluidAudio |

@@ -2,9 +2,7 @@ use std::path::Path;
 
 use ort::session::Session;
 
-use crate::inference::{
-    CoreMlComputeUnits, with_execution_mode, with_execution_mode_and_coreml_units,
-};
+use crate::inference::{with_execution_mode, with_execution_mode_and_coreml_units};
 
 use super::{EmbeddingModel, ExecutionMode};
 
@@ -13,34 +11,31 @@ impl EmbeddingModel {
         model_path: &Path,
         mode: ExecutionMode,
     ) -> Result<Session, ort::Error> {
-        Self::build_session_with_coreml_units(model_path, mode, CoreMlComputeUnits::All)
+        Self::build_session_with_coreml_units(model_path, mode)
     }
 
     pub(super) fn build_session_with_coreml_units(
         model_path: &Path,
         mode: ExecutionMode,
-        coreml_compute_units: CoreMlComputeUnits,
     ) -> Result<Session, ort::Error> {
-        Self::build_session_with_graph(model_path, mode, false, coreml_compute_units)
+        Self::build_session_with_graph(model_path, mode, false)
     }
 
     pub(super) fn build_session_with_graph(
         model_path: &Path,
         mode: ExecutionMode,
         cuda_graph: bool,
-        coreml_compute_units: CoreMlComputeUnits,
     ) -> Result<Session, ort::Error> {
         let builder = Session::builder()?
             .with_independent_thread_pool()?
             .with_intra_threads(1)?
             .with_inter_threads(1)?
             .with_memory_pattern(true)?;
-        let mut builder =
-            if cuda_graph && matches!(mode, ExecutionMode::Cuda | ExecutionMode::CudaFast) {
-                Self::with_cuda_graph_mode(builder)?
-            } else {
-                with_execution_mode_and_coreml_units(builder, mode, coreml_compute_units)?
-            };
+        let mut builder = if cuda_graph && matches!(mode, ExecutionMode::Cuda) {
+            Self::with_cuda_graph_mode(builder)?
+        } else {
+            with_execution_mode_and_coreml_units(builder, mode)?
+        };
         builder.commit_from_file(model_path)
     }
 
@@ -85,17 +80,10 @@ impl EmbeddingModel {
         builder.commit_from_file(model_path)
     }
 
-    pub(super) fn single_execution_mode(mode: ExecutionMode) -> ExecutionMode {
-        match mode {
-            ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => ExecutionMode::Cpu,
-            _ => mode,
-        }
-    }
-
     pub(super) fn build_batched_session(
         model_path: &Path,
         mode: ExecutionMode,
     ) -> Result<Session, ort::Error> {
-        Self::build_session(model_path, Self::single_execution_mode(mode))
+        Self::build_session(model_path, mode)
     }
 }

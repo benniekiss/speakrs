@@ -97,7 +97,7 @@ impl EmbeddingModel {
         model_path: impl AsRef<Path>,
         mode: ExecutionMode,
     ) -> Result<Self, ModelLoadError> {
-        Self::with_mode_and_config(model_path, mode, &crate::pipeline::RuntimeConfig::default())
+        Self::with_mode_and_config(model_path, mode)
     }
 
     /// Audio sample rate in Hz (16000)

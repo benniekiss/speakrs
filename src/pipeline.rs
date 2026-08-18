@@ -206,7 +206,7 @@ impl<'a> DiarizationPipeline<'a> {
         emb_model: &'a mut EmbeddingModel,
         models_dir: &Path,
     ) -> Result<Self, PipelineError> {
-        let default_config = PipelineConfig::for_mode(seg_model.mode());
+        let default_config = PipelineConfig::default();
         Self::new_with_config(seg_model, emb_model, models_dir, default_config)
     }
 
@@ -292,11 +292,7 @@ impl<'a> PipelineRunner<'a> {
     fn inference_path(&self) -> InferencePath {
         if matches!(
             self.seg_model.mode(),
-            ExecutionMode::CoreMl
-                | ExecutionMode::CoreMlFast
-                | ExecutionMode::Cuda
-                | ExecutionMode::CudaFast
-                | ExecutionMode::MiGraphX
+            ExecutionMode::CoreMl | ExecutionMode::Cuda | ExecutionMode::MiGraphX
         ) {
             InferencePath::Concurrent
         } else {

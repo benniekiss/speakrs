@@ -5,12 +5,11 @@ use std::str::FromStr;
 use std::time::Instant;
 
 use color_eyre::eyre::{Result, bail, ensure};
-use speakrs::inference::CoreMlComputeUnits;
 use speakrs::inference::ExecutionMode;
 use speakrs::inference::{EmbeddingModel, SegmentationModel};
 use speakrs::pipeline::{
     COREML_SEGMENTATION_STEP_SECONDS, CUDA_SEGMENTATION_STEP_SECONDS, DiarizationPipeline,
-    FAST_SEGMENTATION_STEP_SECONDS, RuntimeConfig, SEGMENTATION_STEP_SECONDS,
+    SEGMENTATION_STEP_SECONDS,
 };
 
 use crate::wav;
@@ -25,9 +24,7 @@ pub enum DiarizeMode {
 pub enum SpeakrsMode {
     Cpu,
     Coreml,
-    CoremlFast,
     Cuda,
-    CudaFast,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -42,15 +39,12 @@ impl SpeakrsMode {
         match self {
             Self::Cpu => ExecutionMode::Cpu,
             Self::Coreml => ExecutionMode::CoreMl,
-            Self::CoremlFast => ExecutionMode::CoreMlFast,
             Self::Cuda => ExecutionMode::Cuda,
-            Self::CudaFast => ExecutionMode::CudaFast,
         }
     }
 
     fn step_seconds(self) -> f64 {
         match self {
-            Self::CoremlFast | Self::CudaFast => FAST_SEGMENTATION_STEP_SECONDS,
             Self::Coreml => COREML_SEGMENTATION_STEP_SECONDS,
             Self::Cuda => CUDA_SEGMENTATION_STEP_SECONDS,
             Self::Cpu => SEGMENTATION_STEP_SECONDS,
@@ -75,9 +69,7 @@ impl FromStr for DiarizeMode {
         match s {
             "cpu" => Ok(Self::Speakrs(SpeakrsMode::Cpu)),
             "coreml" => Ok(Self::Speakrs(SpeakrsMode::Coreml)),
-            "coreml-fast" => Ok(Self::Speakrs(SpeakrsMode::CoremlFast)),
             "cuda" => Ok(Self::Speakrs(SpeakrsMode::Cuda)),
-            "cuda-fast" => Ok(Self::Speakrs(SpeakrsMode::CudaFast)),
             "pyannote-cpu" => Ok(Self::Pyannote(PyannoteDevice::Cpu)),
             "pyannote-mps" => Ok(Self::Pyannote(PyannoteDevice::Mps)),
             "pyannote-cuda" => Ok(Self::Pyannote(PyannoteDevice::Cuda)),
@@ -93,9 +85,7 @@ impl fmt::Display for DiarizeMode {
         match self {
             Self::Speakrs(SpeakrsMode::Cpu) => write!(f, "cpu"),
             Self::Speakrs(SpeakrsMode::Coreml) => write!(f, "coreml"),
-            Self::Speakrs(SpeakrsMode::CoremlFast) => write!(f, "coreml-fast"),
             Self::Speakrs(SpeakrsMode::Cuda) => write!(f, "cuda"),
-            Self::Speakrs(SpeakrsMode::CudaFast) => write!(f, "cuda-fast"),
             Self::Pyannote(PyannoteDevice::Cpu) => write!(f, "pyannote-cpu"),
             Self::Pyannote(PyannoteDevice::Mps) => write!(f, "pyannote-mps"),
             Self::Pyannote(PyannoteDevice::Cuda) => write!(f, "pyannote-cuda"),
@@ -123,15 +113,7 @@ pub fn run(
         DiarizeMode::Speakrs(speakrs_mode) => {
             let execution_mode = speakrs_mode.execution_mode();
 
-            let compute_units = match chunk_emb_compute_units {
-                "ane" | "cpu-and-neural-engine" => CoreMlComputeUnits::CpuAndNeuralEngine,
-                _ => CoreMlComputeUnits::All,
-            };
-            let runtime_config = RuntimeConfig {
-                chunk_emb_workers,
-                chunk_emb_compute_units: compute_units,
-            };
-            if chunk_emb_workers > 1 || compute_units != CoreMlComputeUnits::All {
+            if chunk_emb_workers > 1 {
                 eprintln!(
                     "runtime config: workers={chunk_emb_workers} compute_units={chunk_emb_compute_units}"
                 );
@@ -154,7 +136,6 @@ pub fn run(
             let mut emb_model = EmbeddingModel::with_mode_and_config(
                 models_dir.join("wespeaker-voxceleb-resnet34.onnx"),
                 execution_mode,
-                &runtime_config,
             )?;
             let emb_model_elapsed = emb_model_start.elapsed();
 

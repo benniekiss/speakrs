@@ -34,7 +34,6 @@ impl LoadedSessions {
     pub(super) fn load(
         model_path: &Path,
         mode: ExecutionMode,
-        config: &crate::pipeline::RuntimeConfig,
     ) -> Result<Self, ModelLoadError> {
         let split_fbank_path = split_fbank_model_path(model_path);
         let split_fbank_batched_path = split_fbank_batched_model_path(model_path);
@@ -42,7 +41,6 @@ impl LoadedSessions {
         let split_tail_batched_path = split_tail_model_path(model_path, CHUNK_SPEAKER_BATCH_SIZE);
         let split_primary_tail_batched_path =
             split_tail_model_path(model_path, SPLIT_TAIL_BATCH_SIZE);
-        let coreml_compute_units = config.chunk_emb_compute_units;
         let use_split_backend = EmbeddingModel::split_backend_available(model_path);
 
         macro_rules! timed {
@@ -53,10 +51,7 @@ impl LoadedSessions {
             }};
         }
 
-        let (session, session_elapsed) = timed!(EmbeddingModel::build_session(
-            model_path,
-            EmbeddingModel::single_execution_mode(mode)
-        )?);
+        let (session, session_elapsed) = timed!(EmbeddingModel::build_session(model_path, mode,)?);
         let (primary_batched_session, primary_batched_elapsed) = timed!(
             batched_model_path(model_path, PRIMARY_BATCH_SIZE)
                 .filter(|path| path.exists())
@@ -83,7 +78,6 @@ impl LoadedSessions {
                     EmbeddingModel::build_session_with_coreml_units(
                         &split_tail_path,
                         mode,
-                        coreml_compute_units,
                     )
                 })
                 .transpose()?
@@ -96,7 +90,6 @@ impl LoadedSessions {
                     EmbeddingModel::build_session_with_coreml_units(
                         path.as_path(),
                         mode,
-                        coreml_compute_units,
                     )
                 })
                 .transpose()?
@@ -109,7 +102,6 @@ impl LoadedSessions {
                     EmbeddingModel::build_session_with_coreml_units(
                         path.as_path(),
                         mode,
-                        coreml_compute_units,
                     )
                 })
                 .transpose()?
@@ -121,7 +113,6 @@ impl LoadedSessions {
                     EmbeddingModel::build_session_with_coreml_units(
                         &path,
                         mode,
-                        coreml_compute_units,
                     )
                 })
                 .transpose()?
@@ -133,7 +124,6 @@ impl LoadedSessions {
                     EmbeddingModel::build_session_with_coreml_units(
                         &path,
                         mode,
-                        coreml_compute_units,
                     )
                 })
                 .transpose()?

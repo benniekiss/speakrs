@@ -131,7 +131,7 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
         ExecutionMode::Cpu => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
         }
-        ExecutionMode::Cuda | ExecutionMode::CudaFast | ExecutionMode::MiGraphX => {
+        ExecutionMode::Cuda | ExecutionMode::MiGraphX => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
             // split models for provider-dispatched fbank + multi-mask embedding
             files.push("wespeaker-fbank.onnx".to_string());
@@ -141,7 +141,7 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
             // batched embedding model
             files.push("wespeaker-voxceleb-resnet34-b64.onnx".to_string());
         }
-        ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => {
+        ExecutionMode::CoreMl => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
             // split ONNX models for embedding
             files.push("wespeaker-fbank.onnx".to_string());
@@ -170,21 +170,11 @@ mod tests {
     }
 
     #[test]
-    fn coreml_modes_use_the_same_onnx_assets() {
-        assert_eq!(
-            required_files(ExecutionMode::CoreMl),
-            required_files(ExecutionMode::CoreMlFast)
-        );
-    }
-
-    #[test]
     fn every_execution_mode_downloads_b64_segmentation() {
         for mode in [
             ExecutionMode::Cpu,
             ExecutionMode::CoreMl,
-            ExecutionMode::CoreMlFast,
             ExecutionMode::Cuda,
-            ExecutionMode::CudaFast,
             ExecutionMode::MiGraphX,
         ] {
             assert!(

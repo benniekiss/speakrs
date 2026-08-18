@@ -261,7 +261,7 @@ pub mod segment;
 pub(crate) mod utils;
 
 // crate-root re-exports for the main import path
-pub use inference::{CoreMlComputeUnits, ExecutionMode};
+pub use inference::ExecutionMode;
 pub use models::ModelBundle;
 #[cfg(feature = "online")]
 #[cfg_attr(docsrs, doc(cfg(feature = "online")))]

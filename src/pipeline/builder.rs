@@ -86,19 +86,13 @@ impl PipelineBuilder {
     pub fn build(self) -> Result<OwnedDiarizationPipeline, PipelineError> {
         self.mode.validate()?;
 
-        let pipeline = self
-            .pipeline
-            .unwrap_or_else(|| PipelineConfig::for_mode(self.mode));
-        let runtime = self.runtime.unwrap_or_default();
+        let pipeline = self.pipeline.unwrap_or_default();
         let step = segmentation_step_seconds(self.mode);
 
         let seg_model =
             SegmentationModel::with_mode(self.bundle.segmentation_path(), step as f32, self.mode)?;
-        let emb_model = EmbeddingModel::with_mode_and_config(
-            self.bundle.embedding_path(),
-            self.mode,
-            &runtime,
-        )?;
+        let emb_model =
+            EmbeddingModel::with_mode_and_config(self.bundle.embedding_path(), self.mode)?;
         let plda = PldaTransform::from_dir(self.bundle.plda_dir())?;
 
         Ok(OwnedDiarizationPipeline {

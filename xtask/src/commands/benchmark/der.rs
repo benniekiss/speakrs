@@ -43,12 +43,6 @@ pub(super) const IMPL_REGISTRY: &[(&str, &str, &str, ImplType)] = &[
         "speakrs CoreML",
         ImplType::Speakrs("coreml"),
     ),
-    (
-        "coreml-fast",
-        "scmf",
-        "speakrs CoreML Fast",
-        ImplType::Speakrs("coreml-fast"),
-    ),
     ("cuda", "sg", "speakrs CUDA", ImplType::Speakrs("cuda")),
     (
         "cuda-fast",

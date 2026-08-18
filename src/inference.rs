@@ -19,26 +19,6 @@ use ort::session::builder::SessionBuilder;
 #[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
 static ORT_RUNTIME_INIT: OnceLock<Result<(), OrtRuntimeError>> = OnceLock::new();
 
-/// CoreML compute unit selection for chunk embedding
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
-pub enum CoreMlComputeUnits {
-    /// Use all available compute units: CPU + GPU + Neural Engine (default)
-    #[default]
-    All,
-    /// Use CPU + Neural Engine only (skip GPU)
-    CpuAndNeuralEngine,
-}
-
-#[cfg(feature = "coreml")]
-impl CoreMlComputeUnits {
-    fn to_ort(self) -> ep::coreml::ComputeUnits {
-        match self {
-            Self::All => ep::coreml::ComputeUnits::All,
-            Self::CpuAndNeuralEngine => ep::coreml::ComputeUnits::CPUAndNeuralEngine,
-        }
-    }
-}
-
 /// Which backend and acceleration to use for inference
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
@@ -48,15 +28,9 @@ pub enum ExecutionMode {
     /// ONNX Runtime CoreML execution provider with a ~1s step
     #[cfg_attr(docsrs, doc(cfg(feature = "coreml")))]
     CoreMl,
-    /// ONNX Runtime CoreML execution provider with a ~2s step
-    #[cfg_attr(docsrs, doc(cfg(feature = "coreml")))]
-    CoreMlFast,
     /// NVIDIA GPU with concurrent fused seg+emb via crossbeam
     #[cfg_attr(docsrs, doc(cfg(feature = "cuda")))]
     Cuda,
-    /// NVIDIA GPU with concurrent fused seg+emb and ~2s step
-    #[cfg_attr(docsrs, doc(cfg(feature = "cuda")))]
-    CudaFast,
     /// AMD GPU via ONNX Runtime's MIGraphX execution provider
     #[cfg_attr(docsrs, doc(cfg(feature = "migraphx")))]
     MiGraphX,
@@ -65,12 +39,12 @@ pub enum ExecutionMode {
 impl ExecutionMode {
     /// Returns true when this mode uses the CoreML execution provider
     pub const fn is_coreml(self) -> bool {
-        matches!(self, Self::CoreMl | Self::CoreMlFast)
+        matches!(self, Self::CoreMl)
     }
 
     /// Returns true when this mode uses CUDA execution
     pub const fn is_cuda(self) -> bool {
-        matches!(self, Self::Cuda | Self::CudaFast)
+        matches!(self, Self::Cuda)
     }
 
     /// Returns true when this mode uses the MIGraphX execution provider
@@ -134,9 +108,7 @@ impl ExecutionMode {
         match self {
             Self::Cpu => "cpu",
             Self::CoreMl => "coreml",
-            Self::CoreMlFast => "coreml-fast",
             Self::Cuda => "cuda",
-            Self::CudaFast => "cuda-fast",
             Self::MiGraphX => "migraphx",
         }
     }
@@ -267,29 +239,24 @@ pub fn with_execution_mode(
     builder: SessionBuilder,
     mode: ExecutionMode,
 ) -> Result<SessionBuilder, ort::Error> {
-    with_execution_mode_and_coreml_units(builder, mode, CoreMlComputeUnits::All)
+    with_execution_mode_and_coreml_units(builder, mode)
 }
 
 pub(crate) fn with_execution_mode_and_coreml_units(
     builder: SessionBuilder,
     mode: ExecutionMode,
-    _coreml_compute_units: CoreMlComputeUnits,
 ) -> Result<SessionBuilder, ort::Error> {
     mode.validate()?;
 
     match mode {
         ExecutionMode::Cpu => Ok(builder
             .with_execution_providers([ep::CPU::default().with_arena_allocator(false).build()])?),
-        ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => {
+        ExecutionMode::CoreMl => {
             #[cfg(feature = "coreml")]
             {
-                let profile_compute_plan =
-                    std::env::var_os("SPEAKRS_COREML_PROFILE_COMPUTE_PLAN").is_some();
                 Ok(builder.with_execution_providers([ep::CoreML::default()
                     .with_model_format(ep::coreml::ModelFormat::MLProgram)
                     .with_static_input_shapes(true)
-                    .with_compute_units(_coreml_compute_units.to_ort())
-                    .with_profile_compute_plan(profile_compute_plan)
                     .build()
                     .error_on_failure()])?)
             }
@@ -299,7 +266,7 @@ pub(crate) fn with_execution_mode_and_coreml_units(
                 unreachable!("mode validation rejects CoreML modes without the `coreml` feature")
             }
         }
-        ExecutionMode::Cuda | ExecutionMode::CudaFast => {
+        ExecutionMode::Cuda => {
             #[cfg(feature = "cuda")]
             {
                 Ok(builder.with_execution_providers([ep::CUDA::default()
@@ -525,12 +492,6 @@ mod tests {
             error.to_string(),
             "coreml requires the `coreml` Cargo feature"
         );
-
-        let error = ExecutionMode::CoreMlFast.validate().unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "coreml-fast requires the `coreml` Cargo feature"
-        );
     }
 
     #[cfg(feature = "coreml")]
@@ -552,12 +513,6 @@ mod tests {
     fn cuda_modes_require_feature() {
         let error = ExecutionMode::Cuda.validate().unwrap_err();
         assert_eq!(error.to_string(), "cuda requires the `cuda` Cargo feature");
-
-        let error = ExecutionMode::CudaFast.validate().unwrap_err();
-        assert_eq!(
-            error.to_string(),
-            "cuda-fast requires the `cuda` Cargo feature"
-        );
     }
 
     #[cfg(not(feature = "migraphx"))]
