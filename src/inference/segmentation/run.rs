@@ -16,6 +16,17 @@ impl SegmentationModel {
         audio: &[f32],
         tx: Sender<Array2<f32>>,
     ) -> Result<usize, SegmentationError> {
+        self.run_with_sink(audio, |window| {
+            tx.send(window)?;
+            Ok(())
+        })
+    }
+
+    fn run_with_sink(
+        &mut self,
+        audio: &[f32],
+        mut emit: impl FnMut(Array2<f32>) -> Result<(), SegmentationError>,
+    ) -> Result<usize, SegmentationError> {
         let windows = SegmentationWindows::collect(audio, self.window_samples, self.step_samples);
         let total_windows = windows.total_windows();
         if windows.is_empty() {
@@ -28,51 +39,33 @@ impl SegmentationModel {
         let mut seg_single = 0u32;
 
         let has_batched = self.primary_batched_session.is_some();
-        let zeros = vec![0.0f32; self.window_samples];
 
         let mut next_idx = 0;
         while next_idx < total_windows {
             let remaining = total_windows - next_idx;
 
-            if remaining >= PRIMARY_BATCH_SIZE && has_batched {
-                let batch: Vec<&[f32]> = (next_idx..next_idx + PRIMARY_BATCH_SIZE)
-                    .map(|idx| windows.window(idx, "streaming segmentation batch"))
-                    .collect::<Result<_, _>>()?;
-
-                let t = std::time::Instant::now();
-                let results = self.run_batch(&batch)?;
-                seg_infer_time += t.elapsed();
-                seg_batched += 1;
-                for r in results {
-                    tx.send(r)?;
-                }
-                next_idx += PRIMARY_BATCH_SIZE;
-                continue;
-            }
-
             if remaining > 1 && has_batched {
-                let mut batch: Vec<&[f32]> = (next_idx..total_windows)
-                    .map(|idx| windows.window(idx, "streaming segmentation tail batch"))
+                let batch_len = remaining.min(PRIMARY_BATCH_SIZE);
+                let batch: Vec<&[f32]> = (next_idx..next_idx + batch_len)
+                    .map(|idx| windows.window(idx, "batched segmentation"))
                     .collect::<Result<_, _>>()?;
-                batch.resize(PRIMARY_BATCH_SIZE, &zeros[..]);
 
                 let t = std::time::Instant::now();
                 let results = self.run_batch(&batch)?;
                 seg_infer_time += t.elapsed();
                 seg_batched += 1;
-                for r in results.into_iter().take(remaining) {
-                    tx.send(r)?;
+                for result in results {
+                    emit(result)?;
                 }
-                next_idx = total_windows;
+                next_idx += batch_len;
                 continue;
             }
 
             let t = std::time::Instant::now();
-            let result =
-                self.run_window(windows.window(next_idx, "streaming segmentation single")?)?;
+            let result = self.run_window(windows.window(next_idx, "single segmentation")?)?;
             seg_infer_time += t.elapsed();
             seg_single += 1;
-            tx.send(result)?;
+            emit(result)?;
             next_idx += 1;
         }
 
@@ -94,36 +87,12 @@ impl SegmentationModel {
     ///
     /// Returns `Vec<Array2<f32>>` where each element is [frames, 7] logits
     pub fn run(&mut self, audio: &[f32]) -> Result<Vec<Array2<f32>>, ort::Error> {
-        let windows = SegmentationWindows::collect(audio, self.window_samples, self.step_samples);
-        let total_windows = windows.total_windows();
-        let mut results = Vec::with_capacity(total_windows);
-        let mut next_idx = 0;
-
-        while next_idx < total_windows {
-            let remaining = total_windows - next_idx;
-            if remaining >= PRIMARY_BATCH_SIZE && self.primary_batched_session.is_some() {
-                let batch: Vec<&[f32]> = (next_idx..next_idx + PRIMARY_BATCH_SIZE)
-                    .map(|idx| windows.window(idx, "segmentation run batch window"))
-                    .collect::<Result<_, _>>()
-                    .map_err(|error| ort::Error::new(error.to_string()))?;
-                results.extend(
-                    self.run_batch(&batch)
-                        .map_err(|error| ort::Error::new(error.to_string()))?,
-                );
-                next_idx += PRIMARY_BATCH_SIZE;
-                continue;
-            }
-
-            let window = windows
-                .window(next_idx, "segmentation run tail window")
-                .map_err(|error| ort::Error::new(error.to_string()))?;
-            results.push(
-                self.run_window(window)
-                    .map_err(|error| ort::Error::new(error.to_string()))?,
-            );
-            next_idx += 1;
-        }
-
+        let mut results = Vec::new();
+        self.run_with_sink(audio, |window| {
+            results.push(window);
+            Ok(())
+        })
+        .map_err(|error| ort::Error::new(error.to_string()))?;
         Ok(results)
     }
 
@@ -149,11 +118,30 @@ impl SegmentationModel {
     }
 
     fn run_batch(&mut self, windows: &[&[f32]]) -> Result<Vec<Array2<f32>>, SegmentationError> {
-        self.primary_batch_input_buffer.fill(0.0);
-        for (batch_idx, window) in windows.iter().enumerate() {
+        if windows.len() > PRIMARY_BATCH_SIZE {
+            return Err(SegmentationError::Invariant {
+                context: "segmentation batch input",
+                message: format!(
+                    "received {} windows for batch size {PRIMARY_BATCH_SIZE}",
+                    windows.len()
+                ),
+            });
+        }
+        if windows.len() < PRIMARY_BATCH_SIZE {
             self.primary_batch_input_buffer
-                .slice_mut(ndarray::s![batch_idx, 0, ..window.len()])
-                .assign(&ndarray::ArrayView1::from(*window));
+                .slice_mut(ndarray::s![windows.len().., .., ..])
+                .fill(0.0);
+        }
+        for (batch_idx, window) in windows.iter().enumerate() {
+            let copy_len = window.len().min(self.window_samples);
+            self.primary_batch_input_buffer
+                .slice_mut(ndarray::s![batch_idx, 0, ..copy_len])
+                .assign(&ndarray::ArrayView1::from(&window[..copy_len]));
+            if copy_len < self.window_samples {
+                self.primary_batch_input_buffer
+                    .slice_mut(ndarray::s![batch_idx, 0, copy_len..])
+                    .fill(0.0);
+            }
         }
         let input_tensor = TensorRef::from_array_view(self.primary_batch_input_buffer.view())?;
 
@@ -166,6 +154,15 @@ impl SegmentationModel {
         let (shape, data) = output.try_extract_tensor::<f32>()?;
 
         let (batch, frames, classes) = output_shape3(shape, "segmentation batch output")?;
+        if batch < windows.len() {
+            return Err(SegmentationError::MalformedOutput {
+                context: "segmentation batch output",
+                message: format!(
+                    "model returned {batch} rows for {} input windows",
+                    windows.len()
+                ),
+            });
+        }
         let stride = frames * classes;
         let expected_len =
             batch
@@ -184,7 +181,7 @@ impl SegmentationModel {
             });
         }
 
-        (0..batch)
+        (0..windows.len())
             .map(|batch_idx| {
                 let start = batch_idx * stride;
                 Array2::from_shape_vec((frames, classes), data[start..start + stride].to_vec())

@@ -12,7 +12,9 @@ pub(super) use data::{
     EmbeddingPath, InferencePath, PendingEmbedding, PendingSplitEmbedding, RawSegmentationWindows,
 };
 pub use error::PipelineError;
-pub(super) use extract::{Array3Writer, EmbeddingStorage, flush_masked, flush_split};
+pub(super) use extract::{
+    Array3Writer, MultiMaskBatch, flush_masked, flush_multi_mask_audio, flush_split,
+};
 pub(super) use layout::{ChunkLayout, chunk_audio_raw};
 #[cfg(test)]
 pub(super) use layout::{chunk_start_frames, total_output_frames};

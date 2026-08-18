@@ -109,10 +109,7 @@ impl EmbeddingModel {
                 .fill(0.0);
         }
 
-        let full_mask_batch = MULTI_MASK_BATCH_SIZE * NUM_SPEAKERS;
-
-        let use_batched =
-            num_fbanks == MULTI_MASK_BATCH_SIZE && self.ort.multi_mask_batched_session.is_some();
+        let use_batched = num_fbanks > 1 && self.ort.multi_mask_batched_session.is_some();
 
         if use_batched {
             let fbank_tensor =
@@ -127,13 +124,12 @@ impl EmbeddingModel {
                 .run(ort::inputs!["fbank" => fbank_tensor, "masks" => masks_tensor])?;
             let output = first_output(outputs.values(), "multi-mask batched output")?;
             let (_shape, data) = output.try_extract_tensor::<f32>()?;
-            let batch = array2_from_shape_vec(
-                full_mask_batch,
+            array2_from_shape_vec(
+                num_masks,
                 256,
-                data.to_vec(),
+                data[..num_masks * 256].to_vec(),
                 "multi-mask batched output",
-            )?;
-            Ok(batch.slice(s![0..num_masks, ..]).to_owned())
+            )
         } else {
             let mut all_embeddings = Array2::<f32>::zeros((num_masks, 256));
             for fbank_idx in 0..num_fbanks {

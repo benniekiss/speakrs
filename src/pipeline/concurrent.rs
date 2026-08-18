@@ -6,8 +6,8 @@ use crate::powerset::PowersetMapping;
 
 use super::config::MIN_SPEAKER_ACTIVITY;
 use super::types::{
-    Array3Writer, EmbeddingStorage, PendingEmbedding, PendingSplitEmbedding, PipelineError,
-    chunk_audio_raw, flush_masked, flush_split,
+    Array3Writer, MultiMaskBatch, PendingEmbedding, PendingSplitEmbedding, PipelineError,
+    chunk_audio_raw, flush_masked, flush_multi_mask_audio, flush_split,
 };
 use super::{clean_masks, select_speaker_weights, write_speaker_mask_to_slice};
 
@@ -34,14 +34,6 @@ fn streaming_total_windows(audio_len: usize, window_samples: usize, step_samples
     let offset_after_full = full_windows * step_samples;
     let has_tail = offset_after_full < audio_len;
     full_windows + has_tail as usize
-}
-
-struct MultiMaskBatch<'a> {
-    audio_slices: &'a [&'a [f32]],
-    flat_masks: &'a [f32],
-    mask_stride: usize,
-    active_flags: &'a [bool],
-    chunk_indices: &'a [usize],
 }
 
 pub(super) struct ConcurrentEmbeddingRunner<'a> {
@@ -195,10 +187,9 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                 self.window_samples,
                 chunk_idx,
             );
-            audio_buffer.push(chunk_audio);
-            chunk_indices.push(chunk_idx);
 
-            let mask_base = (audio_buffer.len() - 1) * self.num_speakers;
+            let mask_base = audio_buffer.len() * self.num_speakers;
+            let mut any_active = false;
             for speaker_idx in 0..self.num_speakers {
                 let slot = mask_base + speaker_idx;
                 let offset = slot * nf;
@@ -211,8 +202,18 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                     dest,
                 );
                 active_flags.push(active);
+                any_active |= active;
             }
             total_decode_us += decode_start.elapsed().as_micros() as u64;
+
+            if !any_active {
+                active_flags.truncate(mask_base);
+                chunk_idx += 1;
+                continue;
+            }
+
+            audio_buffer.push(chunk_audio);
+            chunk_indices.push(chunk_idx);
 
             if audio_buffer.len() == batch_size {
                 let emb = emb_array.get_or_insert_with(|| {
@@ -224,9 +225,10 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                     mask_stride: nf,
                     active_flags: &active_flags,
                     chunk_indices: &chunk_indices,
+                    num_speakers: self.num_speakers,
                 };
                 let (fbank_us, gpu_us) =
-                    self.flush_multi_mask_flat(embedding_model, &batch, &mut Array3Writer(emb))?;
+                    flush_multi_mask_audio(embedding_model, &batch, &mut Array3Writer(emb))?;
                 total_fbank_us += fbank_us;
                 total_gpu_predict_us += gpu_us;
                 flush_count += 1;
@@ -249,9 +251,10 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                 mask_stride: nf,
                 active_flags: &active_flags,
                 chunk_indices: &chunk_indices,
+                num_speakers: self.num_speakers,
             };
             let (fbank_us, gpu_us) =
-                self.flush_multi_mask_flat(embedding_model, &batch, &mut Array3Writer(emb))?;
+                flush_multi_mask_audio(embedding_model, &batch, &mut Array3Writer(emb))?;
             total_fbank_us += fbank_us;
             total_gpu_predict_us += gpu_us;
             flush_count += 1;
@@ -268,46 +271,6 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
         );
 
         self.finalize(seg_array, emb_array, chunk_idx, total_windows)
-    }
-
-    fn flush_multi_mask_flat<S: EmbeddingStorage>(
-        &self,
-        embedding_model: &mut EmbeddingModel,
-        batch: &MultiMaskBatch<'_>,
-        storage: &mut S,
-    ) -> Result<(u64, u64), PipelineError> {
-        let fbank_start = std::time::Instant::now();
-        let fbanks = embedding_model.compute_chunk_fbanks_batch(batch.audio_slices)?;
-        let fbank_us = fbank_start.elapsed().as_micros() as u64;
-
-        let fbank_refs: Vec<_> = fbanks.iter().collect();
-        let num_masks = batch.audio_slices.len() * self.num_speakers;
-        let mask_refs: Vec<&[f32]> = batch
-            .flat_masks
-            .chunks(batch.mask_stride)
-            .take(num_masks)
-            .collect();
-
-        let predict_start = std::time::Instant::now();
-        let batch_embeddings = embedding_model.embed_multi_mask_batch(&fbank_refs, &mask_refs)?;
-
-        for (fbank_idx, &chunk_idx) in batch.chunk_indices.iter().enumerate() {
-            for speaker_idx in 0..self.num_speakers {
-                let mask_idx = fbank_idx * self.num_speakers + speaker_idx;
-                if !batch.active_flags[mask_idx] {
-                    continue;
-                }
-                self.store_embedding_row(
-                    storage,
-                    chunk_idx,
-                    speaker_idx,
-                    batch_embeddings.row(mask_idx),
-                );
-            }
-        }
-        let predict_us = predict_start.elapsed().as_micros() as u64;
-
-        Ok((fbank_us, predict_us))
     }
 
     pub fn run_masked(
@@ -489,21 +452,5 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                 "embedding path processed {chunk_idx} chunks without storing segmentations"
             ))
         })
-    }
-
-    fn store_embedding_row<S: EmbeddingStorage>(
-        &self,
-        storage: &mut S,
-        chunk_idx: usize,
-        speaker_idx: usize,
-        row: ndarray::ArrayView1<'_, f32>,
-    ) {
-        if let Some(values) = row.as_slice() {
-            storage.store(chunk_idx, speaker_idx, values);
-            return;
-        }
-
-        let values = row.to_vec();
-        storage.store(chunk_idx, speaker_idx, &values);
     }
 }

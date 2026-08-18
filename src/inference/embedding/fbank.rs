@@ -63,13 +63,6 @@ impl EmbeddingModel {
 
             self.fill_split_fbank_batch_buffer(batch);
 
-            if batch.len() < FBANK_BATCH_SIZE {
-                for audio in batch {
-                    results.push(self.compute_chunk_fbank(audio)?);
-                }
-                continue;
-            }
-
             let waveform_tensor =
                 TensorRef::from_array_view(self.buffers.split_fbank_batch_buffer.view())?;
             let outputs = self
@@ -93,13 +86,24 @@ impl EmbeddingModel {
     }
 
     fn fill_split_fbank_batch_buffer(&mut self, audios: &[&[f32]]) {
-        self.buffers.split_fbank_batch_buffer.fill(0.0);
+        if audios.len() < FBANK_BATCH_SIZE {
+            self.buffers
+                .split_fbank_batch_buffer
+                .slice_mut(s![audios.len().., .., ..])
+                .fill(0.0);
+        }
         for (idx, audio) in audios.iter().enumerate() {
             let copy_len = audio.len().min(self.meta.window_samples);
             self.buffers
                 .split_fbank_batch_buffer
                 .slice_mut(s![idx, 0, ..copy_len])
                 .assign(&ndarray::ArrayView1::from(&audio[..copy_len]));
+            if copy_len < self.meta.window_samples {
+                self.buffers
+                    .split_fbank_batch_buffer
+                    .slice_mut(s![idx, 0, copy_len..])
+                    .fill(0.0);
+            }
         }
     }
 

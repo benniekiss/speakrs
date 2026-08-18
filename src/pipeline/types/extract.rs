@@ -2,7 +2,9 @@ use ndarray::{Array2, Array3, s};
 use tracing::debug;
 
 use crate::inference::embedding::{EmbeddingModel, MaskedEmbeddingInput, SplitTailInput};
-use crate::pipeline::{MIN_SPEAKER_ACTIVITY, clean_masks, select_speaker_weights};
+use crate::pipeline::{
+    MIN_SPEAKER_ACTIVITY, clean_masks, select_speaker_weights, write_speaker_mask_to_slice,
+};
 use crate::reconstruct::Reconstructor;
 
 use super::{
@@ -211,59 +213,69 @@ impl DecodedSegmentations {
         let min_num_samples = emb_model.min_num_samples();
 
         let mut storage = Array3Writer(embeddings);
-        let mut fbank_buffer: Vec<Array2<f32>> = Vec::with_capacity(batch_size);
-        let mut masks_buffer: Vec<Vec<f32>> = Vec::with_capacity(batch_size * num_speakers);
+        let num_frames = self.0.shape()[1];
+        let mut audio_buffer: Vec<&[f32]> = Vec::with_capacity(batch_size);
+        let mut flat_masks = vec![0.0; batch_size * num_speakers * num_frames];
+        let mut active_flags: Vec<bool> = Vec::with_capacity(batch_size * num_speakers);
         let mut chunk_indices: Vec<usize> = Vec::with_capacity(batch_size);
         let mut batches = 0usize;
 
         for chunk_idx in 0..num_chunks {
             let chunk_audio = layout.chunk_audio(audio, chunk_idx);
-            let fbank = emb_model.compute_chunk_fbank(chunk_audio)?;
-            fbank_buffer.push(fbank);
-            chunk_indices.push(chunk_idx);
-
             let chunk_segmentations = self.0.slice(s![chunk_idx, .., ..]);
-            let clean_masks_arr = clean_masks(&chunk_segmentations);
+            let mask_base = audio_buffer.len() * num_speakers;
+            let mut any_active = false;
 
             for speaker_idx in 0..num_speakers {
-                let Some(weights) = select_speaker_weights(
+                let mask_idx = mask_base + speaker_idx;
+                let offset = mask_idx * num_frames;
+                let active = write_speaker_mask_to_slice(
                     &chunk_segmentations,
-                    &clean_masks_arr,
                     speaker_idx,
                     chunk_audio.len(),
                     min_num_samples,
-                ) else {
-                    masks_buffer.push(vec![0.0; 589]);
-                    continue;
-                };
-                masks_buffer.push(weights);
+                    &mut flat_masks[offset..offset + num_frames],
+                );
+                active_flags.push(active);
+                any_active |= active;
             }
 
-            if fbank_buffer.len() == batch_size {
-                flush_multi_mask(
-                    emb_model,
-                    &fbank_buffer,
-                    &masks_buffer,
-                    &chunk_indices,
+            if !any_active {
+                active_flags.truncate(mask_base);
+                continue;
+            }
+
+            audio_buffer.push(chunk_audio);
+            chunk_indices.push(chunk_idx);
+
+            if audio_buffer.len() == batch_size {
+                let batch = MultiMaskBatch {
+                    audio_slices: &audio_buffer,
+                    flat_masks: &flat_masks,
+                    mask_stride: num_frames,
+                    active_flags: &active_flags,
+                    chunk_indices: &chunk_indices,
                     num_speakers,
-                    &mut storage,
-                )?;
+                };
+                flush_multi_mask_audio(emb_model, &batch, &mut storage)?;
                 batches += 1;
-                fbank_buffer.clear();
-                masks_buffer.clear();
+                audio_buffer.clear();
+                flat_masks.fill(0.0);
+                active_flags.clear();
                 chunk_indices.clear();
             }
         }
 
-        if !fbank_buffer.is_empty() {
-            flush_multi_mask(
-                emb_model,
-                &fbank_buffer,
-                &masks_buffer,
-                &chunk_indices,
+        if !audio_buffer.is_empty() {
+            let batch = MultiMaskBatch {
+                audio_slices: &audio_buffer,
+                flat_masks: &flat_masks,
+                mask_stride: num_frames,
+                active_flags: &active_flags,
+                chunk_indices: &chunk_indices,
                 num_speakers,
-                &mut storage,
-            )?;
+            };
+            flush_multi_mask_audio(emb_model, &batch, &mut storage)?;
             batches += 1;
         }
 
@@ -361,23 +373,42 @@ pub(in crate::pipeline) fn flush_split<S: EmbeddingStorage>(
     Ok(())
 }
 
-pub(in crate::pipeline) fn flush_multi_mask<S: EmbeddingStorage>(
+pub(in crate::pipeline) struct MultiMaskBatch<'a> {
+    pub audio_slices: &'a [&'a [f32]],
+    pub flat_masks: &'a [f32],
+    pub mask_stride: usize,
+    pub active_flags: &'a [bool],
+    pub chunk_indices: &'a [usize],
+    pub num_speakers: usize,
+}
+
+pub(in crate::pipeline) fn flush_multi_mask_audio<S: EmbeddingStorage>(
     emb_model: &mut EmbeddingModel,
-    fbanks: &[Array2<f32>],
-    masks: &[Vec<f32>],
-    chunk_indices: &[usize],
-    num_speakers: usize,
+    batch: &MultiMaskBatch<'_>,
     storage: &mut S,
-) -> Result<(), PipelineError> {
+) -> Result<(u64, u64), PipelineError> {
+    debug_assert_eq!(batch.audio_slices.len(), batch.chunk_indices.len());
+    let num_masks = batch.audio_slices.len() * batch.num_speakers;
+    debug_assert_eq!(batch.active_flags.len(), num_masks);
+
+    let fbank_start = std::time::Instant::now();
+    let fbanks = emb_model.compute_chunk_fbanks_batch(batch.audio_slices)?;
+    let fbank_us = fbank_start.elapsed().as_micros() as u64;
+
     let fbank_refs: Vec<_> = fbanks.iter().collect();
-    let mask_refs: Vec<_> = masks.iter().map(|m| m.as_slice()).collect();
+    let mask_refs: Vec<&[f32]> = batch
+        .flat_masks
+        .chunks(batch.mask_stride)
+        .take(num_masks)
+        .collect();
+
+    let predict_start = std::time::Instant::now();
     let batch_embeddings = emb_model.embed_multi_mask_batch(&fbank_refs, &mask_refs)?;
 
-    for (fbank_idx, &chunk_idx) in chunk_indices.iter().enumerate() {
-        for speaker_idx in 0..num_speakers {
-            let mask_idx = fbank_idx * num_speakers + speaker_idx;
-            let is_active = masks[mask_idx].iter().any(|&v| v > 0.0);
-            if !is_active {
+    for (fbank_idx, &chunk_idx) in batch.chunk_indices.iter().enumerate() {
+        for speaker_idx in 0..batch.num_speakers {
+            let mask_idx = fbank_idx * batch.num_speakers + speaker_idx;
+            if !batch.active_flags[mask_idx] {
                 continue;
             }
             store_row(
@@ -388,6 +419,7 @@ pub(in crate::pipeline) fn flush_multi_mask<S: EmbeddingStorage>(
             );
         }
     }
+    let predict_us = predict_start.elapsed().as_micros() as u64;
 
-    Ok(())
+    Ok((fbank_us, predict_us))
 }
