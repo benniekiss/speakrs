@@ -11,6 +11,12 @@ use std::{
 pub use embedding::EmbeddingModel;
 pub use segmentation::{SegmentationError, SegmentationModel};
 
+#[cfg(any(
+    feature = "coreml",
+    feature = "cuda",
+    feature = "migraphx",
+    feature = "webgpu"
+))]
 use ort::ep;
 use ort::session::builder::SessionBuilder;
 
@@ -186,11 +192,21 @@ pub fn with_execution_mode(
     builder: SessionBuilder,
     mode: ExecutionMode,
 ) -> Result<SessionBuilder, ort::Error> {
+    with_execution_mode_options(builder, mode, false)
+}
+
+pub(crate) fn with_execution_mode_options(
+    builder: SessionBuilder,
+    mode: ExecutionMode,
+    cuda_graph: bool,
+) -> Result<SessionBuilder, ort::Error> {
     mode.validate()?;
 
+    #[cfg(not(feature = "cuda"))]
+    let _ = cuda_graph;
+
     match mode {
-        ExecutionMode::Cpu => Ok(builder
-            .with_execution_providers([ep::CPU::default().with_arena_allocator(false).build()])?),
+        ExecutionMode::Cpu => Ok(builder),
         #[cfg(feature = "coreml")]
         ExecutionMode::CoreMl => Ok(builder.with_execution_providers([ep::CoreML::default()
             .with_model_format(ep::coreml::ModelFormat::MLProgram)
@@ -199,27 +215,26 @@ pub fn with_execution_mode(
             .error_on_failure()])?),
         #[cfg(feature = "cuda")]
         ExecutionMode::Cuda => Ok(builder.with_execution_providers([ep::CUDA::default()
-            .with_device_id(0)
             .with_tf32(true)
-            .with_conv_algorithm_search(ep::cuda::ConvAlgorithmSearch::Exhaustive)
-            .with_conv_max_workspace(true)
-            .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
             .with_prefer_nhwc(true)
+            .with_cuda_graph(cuda_graph)
             .build()
             .error_on_failure()])?),
         #[cfg(feature = "migraphx")]
-        ExecutionMode::MiGraphX => {
-            Ok(builder.with_execution_providers([ep::MIGraphX::default()
-                .with_device_id(0)
-                .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
-                .build()
-                .error_on_failure()])?)
-        }
+        ExecutionMode::MiGraphX => Ok(builder
+            .with_execution_providers([ep::MIGraphX::default().build().error_on_failure()])?),
         #[cfg(feature = "webgpu")]
-        ExecutionMode::WebGpu => Ok(builder.with_execution_providers([ep::WebGPU::default()
-            .with_device_id(0)
-            .build()
-            .error_on_failure()])?),
+        ExecutionMode::WebGpu => {
+            Ok(builder
+                .with_execution_providers([ep::WebGPU::default().build().error_on_failure()])?)
+        }
+
+        #[cfg(not(all(
+            feature = "coreml",
+            feature = "cuda",
+            feature = "migraphx",
+            feature = "webgpu"
+        )))]
         _ => {
             unreachable!("mode validation failed without the `{mode}` feature")
         }

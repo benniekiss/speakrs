@@ -2,7 +2,7 @@ use std::path::Path;
 
 use ort::session::Session;
 
-use crate::inference::with_execution_mode;
+use crate::inference::{with_execution_mode, with_execution_mode_options};
 
 use super::{EmbeddingModel, ExecutionMode};
 
@@ -24,37 +24,8 @@ impl EmbeddingModel {
             .with_intra_threads(1)?
             .with_inter_threads(1)?
             .with_memory_pattern(true)?;
-        let mut builder = if cuda_graph && matches!(mode, ExecutionMode::Cuda) {
-            Self::with_cuda_graph_mode(builder)?
-        } else {
-            with_execution_mode(builder, mode)?
-        };
+        let mut builder = with_execution_mode_options(builder, mode, cuda_graph)?;
         builder.commit_from_file(model_path)
-    }
-
-    #[cfg(feature = "cuda")]
-    fn with_cuda_graph_mode(
-        builder: ort::session::builder::SessionBuilder,
-    ) -> Result<ort::session::builder::SessionBuilder, ort::Error> {
-        use ort::ep;
-
-        Ok(builder.with_execution_providers([ep::CUDA::default()
-            .with_device_id(0)
-            .with_tf32(true)
-            .with_conv_algorithm_search(ep::cuda::ConvAlgorithmSearch::Exhaustive)
-            .with_conv_max_workspace(true)
-            .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
-            .with_prefer_nhwc(true)
-            .with_cuda_graph(true)
-            .build()
-            .error_on_failure()])?)
-    }
-
-    #[cfg(not(feature = "cuda"))]
-    fn with_cuda_graph_mode(
-        builder: ort::session::builder::SessionBuilder,
-    ) -> Result<ort::session::builder::SessionBuilder, ort::Error> {
-        with_execution_mode(builder, ExecutionMode::Cpu)
     }
 
     pub(super) fn build_fbank_session(
