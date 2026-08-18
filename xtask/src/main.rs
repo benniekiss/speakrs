@@ -53,12 +53,6 @@ enum Command {
         /// Path to models directory
         #[arg(long, env = "SPEAKRS_MODELS_DIR")]
         models_dir: Option<PathBuf>,
-        /// Number of chunk embedding workers
-        #[arg(long, default_value = "1")]
-        chunk_emb_workers: usize,
-        /// Compute units for chunk embedding: all, ane
-        #[arg(long, default_value = "all")]
-        chunk_emb_compute_units: String,
         /// WAV files to diarize
         wav_files: Vec<PathBuf>,
     },
@@ -106,16 +100,8 @@ impl Command {
             Self::Diarize {
                 mode,
                 models_dir,
-                chunk_emb_workers,
-                chunk_emb_compute_units,
                 wav_files,
-            } => commands::diarize::run(
-                mode,
-                models_dir,
-                chunk_emb_workers,
-                &chunk_emb_compute_units,
-                wav_files,
-            ),
+            } => commands::diarize::run(mode, models_dir, wav_files),
             Self::ProfileOrtEmbedding {
                 mode,
                 wav_path,

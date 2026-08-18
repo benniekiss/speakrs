@@ -8,7 +8,7 @@ use crate::models::ModelBundle;
 use crate::powerset::PowersetMapping;
 
 use super::OwnedDiarizationPipeline;
-use super::config::{PipelineConfig, RuntimeConfig, segmentation_step_seconds};
+use super::config::{PipelineConfig, segmentation_step_seconds};
 use super::queued::{QueueReceiver, QueueSender};
 use super::types::PipelineError;
 
@@ -22,12 +22,6 @@ use super::types::PipelineError;
 /// // minimal
 /// let mut pipeline = PipelineBuilder::from_pretrained(ExecutionMode::Cpu)?.build()?;
 ///
-/// // with custom runtime config
-/// # use speakrs::RuntimeConfig;
-/// let mut pipeline = PipelineBuilder::from_pretrained(ExecutionMode::Cpu)?
-///     .runtime(RuntimeConfig { chunk_emb_workers: 4, ..Default::default() })
-///     .build()?;
-///
 /// // from local directory
 /// let mut pipeline = PipelineBuilder::from_dir("./models", ExecutionMode::Cpu)
 ///     .build()?;
@@ -36,7 +30,6 @@ use super::types::PipelineError;
 pub struct PipelineBuilder {
     bundle: ModelBundle,
     mode: ExecutionMode,
-    runtime: Option<RuntimeConfig>,
     pipeline: Option<PipelineConfig>,
 }
 
@@ -46,7 +39,6 @@ impl PipelineBuilder {
         Self {
             bundle: ModelBundle::from_dir(models_dir),
             mode,
-            runtime: None,
             pipeline: None,
         }
     }
@@ -56,7 +48,6 @@ impl PipelineBuilder {
         Self {
             bundle,
             mode,
-            runtime: None,
             pipeline: None,
         }
     }
@@ -68,12 +59,6 @@ impl PipelineBuilder {
         mode.validate()?;
         let bundle = ModelBundle::from_pretrained(mode)?;
         Ok(Self::from_bundle(bundle, mode))
-    }
-
-    /// Override runtime config (workers, compute units)
-    pub fn runtime(mut self, config: RuntimeConfig) -> Self {
-        self.runtime = Some(config);
-        self
     }
 
     /// Override pipeline config (thresholds, clustering)
@@ -91,8 +76,7 @@ impl PipelineBuilder {
 
         let seg_model =
             SegmentationModel::with_mode(self.bundle.segmentation_path(), step as f32, self.mode)?;
-        let emb_model =
-            EmbeddingModel::with_mode_and_config(self.bundle.embedding_path(), self.mode)?;
+        let emb_model = EmbeddingModel::with_mode(self.bundle.embedding_path(), self.mode)?;
         let plda = PldaTransform::from_dir(self.bundle.plda_dir())?;
 
         Ok(OwnedDiarizationPipeline {

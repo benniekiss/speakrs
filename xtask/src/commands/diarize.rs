@@ -98,13 +98,7 @@ impl fmt::Display for DiarizeMode {
     }
 }
 
-pub fn run(
-    mode: DiarizeMode,
-    models_dir: Option<PathBuf>,
-    chunk_emb_workers: usize,
-    chunk_emb_compute_units: &str,
-    wav_files: Vec<PathBuf>,
-) -> Result<()> {
+pub fn run(mode: DiarizeMode, models_dir: Option<PathBuf>, wav_files: Vec<PathBuf>) -> Result<()> {
     let command_start = Instant::now();
 
     ensure!(!wav_files.is_empty(), "no WAV files specified");
@@ -117,12 +111,6 @@ pub fn run(
         },
         DiarizeMode::Speakrs(speakrs_mode) => {
             let execution_mode = speakrs_mode.execution_mode();
-
-            if chunk_emb_workers > 1 {
-                eprintln!(
-                    "runtime config: workers={chunk_emb_workers} compute_units={chunk_emb_compute_units}"
-                );
-            }
 
             let models_dir_start = Instant::now();
             let models_dir = models_dir.unwrap_or_else(default_models_dir);
@@ -138,7 +126,7 @@ pub fn run(
             let seg_model_elapsed = seg_model_start.elapsed();
 
             let emb_model_start = Instant::now();
-            let mut emb_model = EmbeddingModel::with_mode_and_config(
+            let mut emb_model = EmbeddingModel::with_mode(
                 models_dir.join("wespeaker-voxceleb-resnet34.onnx"),
                 execution_mode,
             )?;

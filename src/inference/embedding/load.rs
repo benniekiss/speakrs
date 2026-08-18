@@ -17,8 +17,7 @@ impl EmbeddingModel {
         split_fbank_path.exists() && (split_tail_path.exists() || has_multi_mask)
     }
 
-    /// Load the WeSpeaker embedding model with the requested execution mode and runtime config
-    pub fn with_mode_and_config(
+    pub(super) fn load(
         model_path: impl AsRef<Path>,
         mode: ExecutionMode,
     ) -> Result<Self, ModelLoadError> {

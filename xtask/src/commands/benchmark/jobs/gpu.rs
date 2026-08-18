@@ -5,12 +5,6 @@ use super::super::ImplType;
 const GPU_IMPLS: &[(&str, &str, &str, ImplType)] = &[
     ("speakrs", "sg", "speakrs CUDA", ImplType::Speakrs("cuda")),
     (
-        "speakrs-fast",
-        "sgf",
-        "speakrs CUDA Fast",
-        ImplType::Speakrs("cuda-fast"),
-    ),
-    (
         "pyannote",
         "pg",
         "pyannote CUDA",

@@ -235,7 +235,7 @@
 //! - [`OwnedDiarizationPipeline`]: pipeline entry point
 //! - [`QueueSender`] and [`QueueReceiver`]: background worker interface
 //! - [`DiarizationResult`]: frame-level activations, segments, clusters, embeddings, RTTM
-//! - [`PipelineConfig`] and [`RuntimeConfig`]: tuning knobs
+//! - [`PipelineConfig`]: diarization tuning knobs
 //! - [`ModelManager`]: model download when `online` is enabled
 //! - [`Segment`]: a single speaker turn
 
@@ -270,7 +270,7 @@ pub use pipeline::{
     AhcConfig, BatchInput, BinarizeConfig, DiarizationPipeline, DiarizationResult,
     OwnedDiarizationPipeline, PipelineBuilder, PipelineConfig, PipelineError, QueueError,
     QueueReceiver, QueueReceiverIter, QueueSender, QueuedDiarizationJobId,
-    QueuedDiarizationRequest, QueuedDiarizationResult, RuntimeConfig, VbxConfig,
+    QueuedDiarizationRequest, QueuedDiarizationResult, VbxConfig,
 };
 pub use segment::Segment;
 

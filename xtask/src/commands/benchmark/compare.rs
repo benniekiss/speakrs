@@ -150,16 +150,6 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
                 wav_str.to_string(),
             ],
         ),
-        (
-            "speakrs CoreML Fast",
-            vec![
-                speakrs_binary.to_string_lossy().into(),
-                "diarize".into(),
-                "--mode".into(),
-                "coreml-fast".into(),
-                wav_str.to_string(),
-            ],
-        ),
     ];
 
     let fluidaudio_path = find_fluidaudio();

@@ -6,7 +6,7 @@ pub(crate) use config::MIN_SPEAKER_ACTIVITY;
 pub use config::{
     COREML_SEGMENTATION_STEP_SECONDS, CUDA_SEGMENTATION_STEP_SECONDS,
     FAST_SEGMENTATION_STEP_SECONDS, FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, PipelineConfig,
-    ReconstructMethod, RuntimeConfig, SEGMENTATION_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS,
+    ReconstructMethod, SEGMENTATION_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS,
     segmentation_step_seconds,
 };
 
@@ -139,7 +139,7 @@ pub struct OwnedDiarizationPipeline {
 }
 
 impl OwnedDiarizationPipeline {
-    /// Load models from a local directory using default pipeline and runtime config
+    /// Load models from a local directory using the default pipeline config
     pub fn from_dir(
         models_dir: impl Into<std::path::PathBuf>,
         mode: ExecutionMode,

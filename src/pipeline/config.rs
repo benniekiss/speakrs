@@ -44,23 +44,6 @@ impl Default for PipelineConfig {
     }
 }
 
-/// Runtime configuration for the diarization pipeline
-///
-/// Controls execution parameters that do not affect correctness but do affect performance.
-#[derive(Debug, Clone)]
-pub struct RuntimeConfig {
-    /// Number of chunk embedding workers
-    pub chunk_emb_workers: usize,
-}
-
-impl Default for RuntimeConfig {
-    fn default() -> Self {
-        Self {
-            chunk_emb_workers: 1,
-        }
-    }
-}
-
 /// Segmentation step size in seconds for the selected execution mode
 pub const fn segmentation_step_seconds(mode: ExecutionMode) -> f64 {
     match mode {
