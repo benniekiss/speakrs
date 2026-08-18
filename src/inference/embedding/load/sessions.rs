@@ -65,7 +65,7 @@ impl LoadedSessions {
         );
         let (split_fbank_session, split_fbank_elapsed) = timed!(
             use_split_backend
-                .then(|| EmbeddingModel::build_fbank_session(&split_fbank_path, ExecutionMode::Cpu))
+                .then(|| EmbeddingModel::build_fbank_session(&split_fbank_path, mode))
                 .transpose()?
         );
         let (split_fbank_batched_session, split_fbank_batched_elapsed) = timed!(
