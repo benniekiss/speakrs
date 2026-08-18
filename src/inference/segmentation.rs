@@ -3,13 +3,7 @@ use std::path::{Path, PathBuf};
 use ndarray::Array2;
 use ort::session::Session;
 
-#[cfg(feature = "coreml")]
-use crate::inference::coreml::{CachedInputShape, SharedCoreMlModel};
 use crate::inference::{ExecutionMode, ModelLoadError, ensure_ort_ready, with_execution_mode};
-#[cfg(feature = "coreml")]
-mod native;
-#[cfg(feature = "coreml")]
-mod parallel;
 mod run;
 mod tensor;
 
@@ -49,36 +43,18 @@ pub enum SegmentationError {
 
 // seg models exported with EnumeratedShapes for batch 1-32 and b64
 const PRIMARY_BATCH_SIZE: usize = 32;
-#[cfg(feature = "coreml")]
-const LARGE_BATCH_SIZE: usize = 64;
 
 /// Sliding-window segmentation model (pyannote segmentation-3.0)
 pub struct SegmentationModel {
     mode: ExecutionMode,
     session: Session,
     primary_batched_session: Option<Session>,
-    #[cfg(feature = "coreml")]
-    native_session: Option<SharedCoreMlModel>,
-    #[cfg(feature = "coreml")]
-    native_batched_session: Option<SharedCoreMlModel>,
-    #[cfg(feature = "coreml")]
-    native_large_batched_session: Option<SharedCoreMlModel>,
-    #[cfg(feature = "coreml")]
-    cached_single_input_shape: CachedInputShape,
-    #[cfg(feature = "coreml")]
-    cached_batch_input_shape: CachedInputShape,
     input_buffer: ndarray::Array3<f32>,
     primary_batch_input_buffer: ndarray::Array3<f32>,
     window_samples: usize,
     step_samples: usize,
     sample_rate: usize,
 }
-
-// SAFETY: SegmentationModel is only used from one thread at a time via &mut self
-// SAFETY: the non-Send fields contain Objective-C objects that are only moved, not shared
-// SAFETY: SharedCoreMlModel is already Send + Sync
-#[cfg(feature = "coreml")]
-unsafe impl Send for SegmentationModel {}
 
 impl SegmentationModel {
     /// Load a segmentation-3.0 ONNX model
@@ -101,11 +77,6 @@ impl SegmentationModel {
         let window_samples = (window_duration * sample_rate as f32) as usize;
         let step_samples = (step_duration * sample_rate as f32) as usize;
 
-        #[cfg(feature = "coreml")]
-        if matches!(mode, ExecutionMode::CoreMl | ExecutionMode::CoreMlFast) {
-            Self::validate_native_coreml_assets(model_path, mode)?;
-        }
-
         macro_rules! timed {
             ($expr:expr) => {{
                 let start = std::time::Instant::now();
@@ -121,60 +92,6 @@ impl SegmentationModel {
                 .map(|path| Self::build_session(&path, mode))
                 .transpose()?
         );
-        #[cfg(feature = "coreml")]
-        let (native_session, native_session_elapsed) =
-            timed!(Self::load_native_coreml(model_path, mode)?);
-        #[cfg(feature = "coreml")]
-        let (native_batched_session, native_batched_elapsed) =
-            timed!(Self::load_native_coreml_batched(model_path, mode)?);
-        #[cfg(feature = "coreml")]
-        let (native_large_batched_session, native_large_batched_elapsed) =
-            timed!(Self::load_native_coreml_large_batched(model_path, mode)?);
-
-        #[cfg(feature = "coreml")]
-        if matches!(mode, ExecutionMode::CoreMl | ExecutionMode::CoreMlFast) {
-            if native_session.is_none() {
-                return Err(ModelLoadError::MissingNativeAsset {
-                    mode,
-                    path: Self::resolve_coreml_path(model_path, mode)
-                        .unwrap_or_else(|| model_path.to_path_buf()),
-                });
-            }
-            if native_batched_session.is_none() {
-                return Err(ModelLoadError::MissingNativeAsset {
-                    mode,
-                    path: Self::resolve_batched_coreml_path(model_path, mode, PRIMARY_BATCH_SIZE)
-                        .unwrap_or_else(|| model_path.to_path_buf()),
-                });
-            }
-            if native_large_batched_session.is_none() {
-                return Err(ModelLoadError::MissingNativeAsset {
-                    mode,
-                    path: Self::resolve_batched_coreml_path(model_path, mode, LARGE_BATCH_SIZE)
-                        .unwrap_or_else(|| model_path.to_path_buf()),
-                });
-            }
-        }
-
-        #[cfg(feature = "coreml")]
-        {
-            let total_ms = (session_elapsed
-                + primary_batched_elapsed
-                + native_session_elapsed
-                + native_batched_elapsed
-                + native_large_batched_elapsed)
-                .as_millis();
-            tracing::trace!(
-                ort_single_ms = session_elapsed.as_millis(),
-                ort_batched_ms = primary_batched_elapsed.as_millis(),
-                native_single_ms = native_session_elapsed.as_millis(),
-                native_b32_ms = native_batched_elapsed.as_millis(),
-                native_b64_ms = native_large_batched_elapsed.as_millis(),
-                total_ms,
-                "Segmentation model init",
-            );
-        }
-        #[cfg(not(feature = "coreml"))]
         {
             let total_ms = (session_elapsed + primary_batched_elapsed).as_millis();
             tracing::trace!(
@@ -189,19 +106,6 @@ impl SegmentationModel {
             mode,
             session,
             primary_batched_session,
-            #[cfg(feature = "coreml")]
-            native_session,
-            #[cfg(feature = "coreml")]
-            native_batched_session,
-            #[cfg(feature = "coreml")]
-            native_large_batched_session,
-            #[cfg(feature = "coreml")]
-            cached_single_input_shape: CachedInputShape::new("input", &[1, 1, window_samples]),
-            #[cfg(feature = "coreml")]
-            cached_batch_input_shape: CachedInputShape::new(
-                "input",
-                &[PRIMARY_BATCH_SIZE, 1, window_samples],
-            ),
             input_buffer: ndarray::Array3::zeros((1, 1, window_samples)),
             primary_batch_input_buffer: ndarray::Array3::zeros((
                 PRIMARY_BATCH_SIZE,

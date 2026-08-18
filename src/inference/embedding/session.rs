@@ -2,7 +2,9 @@ use std::path::Path;
 
 use ort::session::Session;
 
-use crate::inference::with_execution_mode;
+use crate::inference::{
+    CoreMlComputeUnits, with_execution_mode, with_execution_mode_and_coreml_units,
+};
 
 use super::{EmbeddingModel, ExecutionMode};
 
@@ -11,13 +13,22 @@ impl EmbeddingModel {
         model_path: &Path,
         mode: ExecutionMode,
     ) -> Result<Session, ort::Error> {
-        Self::build_session_with_graph(model_path, mode, false)
+        Self::build_session_with_coreml_units(model_path, mode, CoreMlComputeUnits::All)
+    }
+
+    pub(super) fn build_session_with_coreml_units(
+        model_path: &Path,
+        mode: ExecutionMode,
+        coreml_compute_units: CoreMlComputeUnits,
+    ) -> Result<Session, ort::Error> {
+        Self::build_session_with_graph(model_path, mode, false, coreml_compute_units)
     }
 
     pub(super) fn build_session_with_graph(
         model_path: &Path,
         mode: ExecutionMode,
         cuda_graph: bool,
+        coreml_compute_units: CoreMlComputeUnits,
     ) -> Result<Session, ort::Error> {
         let builder = Session::builder()?
             .with_independent_thread_pool()?
@@ -28,7 +39,7 @@ impl EmbeddingModel {
             if cuda_graph && matches!(mode, ExecutionMode::Cuda | ExecutionMode::CudaFast) {
                 Self::with_cuda_graph_mode(builder)?
             } else {
-                with_execution_mode(builder, mode)?
+                with_execution_mode_and_coreml_units(builder, mode, coreml_compute_units)?
             };
         builder.commit_from_file(model_path)
     }

@@ -22,32 +22,12 @@ pub(super) fn array2_from_shape_vec(
         .map_err(|error| ort::Error::new(format!("{context}: invalid output shape: {error}")))
 }
 
-#[cfg(feature = "coreml")]
-pub(super) fn array2_slice<'a>(
-    array: &'a Array2<f32>,
-    context: &'static str,
-) -> Result<&'a [f32], ort::Error> {
-    array
-        .as_slice()
-        .ok_or_else(|| ort::Error::new(format!("{context}: array buffer was not contiguous")))
-}
-
 pub(super) fn array2_slice_mut<'a>(
     array: &'a mut Array2<f32>,
     context: &'static str,
 ) -> Result<&'a mut [f32], ort::Error> {
     array
         .as_slice_mut()
-        .ok_or_else(|| ort::Error::new(format!("{context}: array buffer was not contiguous")))
-}
-
-#[cfg(feature = "coreml")]
-pub(super) fn array3_slice<'a>(
-    array: &'a Array3<f32>,
-    context: &'static str,
-) -> Result<&'a [f32], ort::Error> {
-    array
-        .as_slice()
         .ok_or_else(|| ort::Error::new(format!("{context}: array buffer was not contiguous")))
 }
 

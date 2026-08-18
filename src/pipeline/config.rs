@@ -1,6 +1,4 @@
-#[cfg(feature = "coreml")]
-use crate::inference::CoreMlComputeUnits;
-use crate::inference::ExecutionMode;
+use crate::inference::{CoreMlComputeUnits, ExecutionMode};
 use crate::pipeline::{AhcConfig, BinarizeConfig, VbxConfig};
 
 /// How to map cluster assignments back to per-frame speaker activations
@@ -77,9 +75,7 @@ impl PipelineConfig {
 pub struct RuntimeConfig {
     /// Number of chunk embedding workers
     pub chunk_emb_workers: usize,
-    /// CoreML compute units for chunk embedding (CoreML modes only)
-    #[cfg(feature = "coreml")]
-    #[cfg_attr(docsrs, doc(cfg(feature = "coreml")))]
+    /// CoreML compute units for chunk embedding sessions
     pub chunk_emb_compute_units: CoreMlComputeUnits,
 }
 
@@ -87,7 +83,6 @@ impl Default for RuntimeConfig {
     fn default() -> Self {
         Self {
             chunk_emb_workers: 1,
-            #[cfg(feature = "coreml")]
             chunk_emb_compute_units: CoreMlComputeUnits::All,
         }
     }

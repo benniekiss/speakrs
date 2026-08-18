@@ -9,7 +9,7 @@ const EMBEDDING_ONNX: &str = "wespeaker-voxceleb-resnet34.onnx";
 /// Resolved model paths for the speakrs pipeline
 ///
 /// Captures the three root paths needed by [`SegmentationModel`], [`EmbeddingModel`],
-/// and `PldaTransform`. Variant models (batched, CoreML, split) are derived
+/// and `PldaTransform`. Variant models (batched and split) are derived
 /// internally by each model constructor from the base ONNX path.
 ///
 /// [`SegmentationModel`]: crate::inference::segmentation::SegmentationModel
@@ -123,64 +123,6 @@ const ONNX_FILES: &[&str] = &[
 ];
 
 #[cfg(feature = "online")]
-fn mlmodelc_files(name: &str) -> Vec<String> {
-    vec![
-        format!("{name}/model.mil"),
-        format!("{name}/coremldata.bin"),
-        format!("{name}/weights/weight.bin"),
-        format!("{name}/analytics/coremldata.bin"),
-    ]
-}
-
-#[cfg(feature = "online")]
-fn extend_mlmodelc_files(files: &mut Vec<String>, names: &[&str]) {
-    for name in names {
-        files.extend(mlmodelc_files(name));
-    }
-}
-
-#[cfg(feature = "online")]
-const COREML_COMMON_MODEL_STEMS: &[&str] = &[
-    "segmentation-3.0.mlmodelc",
-    "segmentation-3.0-b32.mlmodelc",
-    "segmentation-3.0-b64.mlmodelc",
-    "wespeaker-fbank.mlmodelc",
-    "wespeaker-fbank-b32.mlmodelc",
-    "wespeaker-fbank-30s.mlmodelc",
-    "wespeaker-multimask-tail-b32.mlmodelc",
-    "wespeaker-voxceleb-resnet34-tail.mlmodelc",
-    "wespeaker-voxceleb-resnet34-tail-b3.mlmodelc",
-    "wespeaker-voxceleb-resnet34-tail-b32.mlmodelc",
-];
-
-#[cfg(feature = "online")]
-const COREML_CHUNK_MODEL_STEMS: &[&str] = &[
-    "wespeaker-chunk-emb-s12-w22.mlmodelc",
-    "wespeaker-chunk-emb-s12-w37.mlmodelc",
-    "wespeaker-chunk-emb-s12-w53.mlmodelc",
-    "wespeaker-chunk-emb-s12-w84.mlmodelc",
-    "wespeaker-chunk-emb-s12-w116.mlmodelc",
-];
-
-#[cfg(feature = "online")]
-const COREML_FAST_SEGMENTATION_MODEL_STEMS: &[&str] = &[
-    "segmentation-3.0-w8a16.mlmodelc",
-    "segmentation-3.0-b32-w8a16.mlmodelc",
-    "segmentation-3.0-b64-w8a16.mlmodelc",
-];
-
-#[cfg(feature = "online")]
-const COREML_FAST_CHUNK_MODEL_STEMS: &[&str] = &[
-    "wespeaker-chunk-emb-s25-w11.mlmodelc",
-    "wespeaker-chunk-emb-s25-w16.mlmodelc",
-    "wespeaker-chunk-emb-s25-w21.mlmodelc",
-    "wespeaker-chunk-emb-s25-w26.mlmodelc",
-    "wespeaker-chunk-emb-s25-w36.mlmodelc",
-    "wespeaker-chunk-emb-s25-w46.mlmodelc",
-    "wespeaker-chunk-emb-s25-w56.mlmodelc",
-];
-
-#[cfg(feature = "online")]
 fn required_files(mode: ExecutionMode) -> Vec<String> {
     let mut files: Vec<String> = PLDA_FILES.iter().map(|s| s.to_string()).collect();
 
@@ -199,11 +141,8 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
             files.push("segmentation-3.0-b32.onnx".to_string());
             files.push("wespeaker-voxceleb-resnet34-b64.onnx".to_string());
         }
-        ExecutionMode::CoreMl => {
-            // native CoreML modes still need the ONNX segmentation model for the constructor
-            files.push("segmentation-3.0.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34.onnx.data".to_string());
+        ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => {
+            files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
             // b32 batched ONNX for segmentation
             files.push("segmentation-3.0-b32.onnx".to_string());
             // split ONNX models for embedding
@@ -212,22 +151,6 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
             files.push("wespeaker-voxceleb-resnet34-tail.onnx".to_string());
             files.push("wespeaker-voxceleb-resnet34-tail-b3.onnx".to_string());
             files.push("wespeaker-voxceleb-resnet34-tail-b32.onnx".to_string());
-            extend_mlmodelc_files(&mut files, COREML_COMMON_MODEL_STEMS);
-            extend_mlmodelc_files(&mut files, COREML_CHUNK_MODEL_STEMS);
-        }
-        ExecutionMode::CoreMlFast => {
-            files.push("segmentation-3.0.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34.onnx.data".to_string());
-            files.push("segmentation-3.0-b32.onnx".to_string());
-            files.push("wespeaker-fbank.onnx".to_string());
-            files.push("wespeaker-fbank-b32.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34-tail.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34-tail-b3.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34-tail-b32.onnx".to_string());
-            extend_mlmodelc_files(&mut files, COREML_COMMON_MODEL_STEMS);
-            extend_mlmodelc_files(&mut files, COREML_FAST_SEGMENTATION_MODEL_STEMS);
-            extend_mlmodelc_files(&mut files, COREML_FAST_CHUNK_MODEL_STEMS);
         }
     }
 
@@ -239,20 +162,21 @@ mod tests {
     use super::*;
 
     #[test]
-    fn coreml_required_files_include_chunk_fast_path_assets() {
+    fn coreml_required_files_are_onnx_assets() {
         let files = required_files(ExecutionMode::CoreMl);
-        assert!(files.contains(&"segmentation-3.0-b64.mlmodelc/model.mil".to_string()));
-        assert!(files.contains(&"wespeaker-fbank-30s.mlmodelc/model.mil".to_string()));
-        assert!(files.contains(&"wespeaker-multimask-tail-b32.mlmodelc/model.mil".to_string()));
-        assert!(files.contains(&"wespeaker-chunk-emb-s12-w116.mlmodelc/model.mil".to_string()));
+        assert!(files.contains(&"segmentation-3.0.onnx".to_string()));
+        assert!(files.contains(&"segmentation-3.0-b32.onnx".to_string()));
+        assert!(files.contains(&"wespeaker-fbank.onnx".to_string()));
+        assert!(files.contains(&"wespeaker-voxceleb-resnet34-tail.onnx".to_string()));
+        assert!(files.iter().all(|file| !file.contains(".mlmodelc")));
     }
 
     #[test]
-    fn coreml_fast_required_files_include_fast_assets() {
-        let files = required_files(ExecutionMode::CoreMlFast);
-        assert!(files.contains(&"segmentation-3.0-w8a16.mlmodelc/model.mil".to_string()));
-        assert!(files.contains(&"segmentation-3.0-b64-w8a16.mlmodelc/model.mil".to_string()));
-        assert!(files.contains(&"wespeaker-chunk-emb-s25-w56.mlmodelc/model.mil".to_string()));
+    fn coreml_modes_use_the_same_onnx_assets() {
+        assert_eq!(
+            required_files(ExecutionMode::CoreMl),
+            required_files(ExecutionMode::CoreMlFast)
+        );
     }
 
     #[test]

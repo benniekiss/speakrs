@@ -1,8 +1,6 @@
 use ndarray::{Array1, Array2, ArrayView2, s};
 use ort::value::TensorRef;
 
-#[cfg(feature = "coreml")]
-use super::tensor::{array2_slice, array3_slice};
 use super::{
     CHUNK_SPEAKER_BATCH_SIZE, EmbeddingModel, FBANK_FEATURES, FBANK_FRAMES, array1_slice,
     array2_from_shape_vec, array3_slice_mut, first_output, select_mask, should_use_clean_mask,
@@ -33,22 +31,7 @@ impl EmbeddingModel {
         }
 
         let fbank = self.compute_chunk_fbank(audio)?;
-        #[cfg(feature = "coreml")]
-        let has_batched_tail = if self.meta.mode.is_coreml() {
-            Self::has_native_tail_model(
-                &self.meta.model_path,
-                self.meta.mode,
-                CHUNK_SPEAKER_BATCH_SIZE,
-            )
-        } else {
-            self.ort.split_tail_batched_session.is_some()
-                || Self::has_native_tail_model(
-                    &self.meta.model_path,
-                    self.meta.mode,
-                    CHUNK_SPEAKER_BATCH_SIZE,
-                )
-        };
-        #[cfg(not(feature = "coreml"))]
+
         let has_batched_tail = self.ort.split_tail_batched_session.is_some();
         if speaker_count == CHUNK_SPEAKER_BATCH_SIZE && has_batched_tail {
             return self.embed_tail_batch(&fbank, &segmentations, clean_masks, audio.len());
@@ -85,32 +68,6 @@ impl EmbeddingModel {
             self.meta.mask_frames,
             &mut self.buffers.split_weights_batch_buffer.view_mut(),
         );
-
-        #[cfg(feature = "coreml")]
-        {
-            self.ensure_native_tail_loaded()?;
-        }
-        #[cfg(feature = "coreml")]
-        if let Some(native) = self.coreml.native_tail_session.as_mut() {
-            let feature_slice = self
-                .buffers
-                .split_feature_batch_buffer
-                .slice(s![0..1, .., ..]);
-            let weight_slice = self.buffers.split_weights_batch_buffer.slice(s![0..1, ..]);
-            let fbank_data = feature_slice.as_slice().ok_or_else(|| {
-                ort::Error::new("native tail fbank input: array view was not contiguous")
-            })?;
-            let weights_data = weight_slice.as_slice().ok_or_else(|| {
-                ort::Error::new("native tail weights input: array view was not contiguous")
-            })?;
-            let (data, _) = native
-                .predict(&[
-                    ("fbank", &[1, FBANK_FRAMES, FBANK_FEATURES], fbank_data),
-                    ("weights", &[1, self.meta.mask_frames], weights_data),
-                ])
-                .map_err(|e| ort::Error::new(e.to_string()))?;
-            return Ok(Array1::from_vec(data));
-        }
 
         let feature_slice = self
             .buffers
@@ -170,35 +127,6 @@ impl EmbeddingModel {
                 &weights,
                 self.meta.mask_frames,
                 &mut self.buffers.split_weights_batch_buffer.view_mut(),
-            );
-        }
-
-        #[cfg(feature = "coreml")]
-        {
-            self.ensure_native_tail_batched_loaded()?;
-        }
-        #[cfg(feature = "coreml")]
-        if let Some(native) = self.coreml.native_tail_batched_session.as_mut() {
-            let fbank_data = array3_slice(
-                &self.buffers.split_feature_batch_buffer,
-                "native tail batch fbank input",
-            )?;
-            let weights_data = array2_slice(
-                &self.buffers.split_weights_batch_buffer,
-                "native tail batch weights input",
-            )?;
-            let batch = CHUNK_SPEAKER_BATCH_SIZE;
-            let (data, _) = native
-                .predict(&[
-                    ("fbank", &[batch, FBANK_FRAMES, FBANK_FEATURES], fbank_data),
-                    ("weights", &[batch, self.meta.mask_frames], weights_data),
-                ])
-                .map_err(|e| ort::Error::new(e.to_string()))?;
-            return array2_from_shape_vec(
-                segmentations.ncols(),
-                256,
-                data,
-                "native tail batch output",
             );
         }
 

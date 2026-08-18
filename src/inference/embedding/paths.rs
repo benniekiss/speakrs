@@ -1,9 +1,6 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-#[cfg(feature = "coreml")]
-use crate::inference::coreml::coreml_model_path;
-
 pub(super) fn batched_model_path(model_path: &Path, batch_size: usize) -> Option<PathBuf> {
     let file_name = model_path.file_name()?.to_str()?;
     let stem = file_name.strip_suffix(".onnx")?;
@@ -34,11 +31,6 @@ pub(super) fn multi_mask_model_path(model_path: &Path, batch_size: usize) -> Opt
     } else {
         Some(model_path.with_file_name(format!("wespeaker-multimask-tail-b{batch_size}.onnx")))
     }
-}
-
-#[cfg(feature = "coreml")]
-pub(super) fn fp32_coreml_path(model_path: &Path) -> PathBuf {
-    coreml_model_path(model_path)
 }
 
 pub(super) fn read_min_num_samples(path: &Path) -> Option<usize> {

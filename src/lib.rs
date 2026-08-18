@@ -7,7 +7,7 @@
 //! binarization, embedding, PLDA, and VBx clustering.
 //!
 //! There is no Python runtime in the library path. Inference runs on ONNX
-//! Runtime or native CoreML, and the rest of the pipeline stays in Rust.
+//! Runtime execution providers, and the rest of the pipeline stays in Rust.
 //!
 //! # Usage
 //!
@@ -107,8 +107,8 @@
 //! | Mode | Backend | Step | Use it for |
 //! |------|---------|------|------------|
 //! | `cpu` | ONNX Runtime CPU | 1s | CPU runs and widest compatibility |
-//! | `coreml` | Native CoreML | 1s | macOS with CoreML acceleration |
-//! | `coreml-fast` | Native CoreML | 2s | macOS with CoreML acceleration and higher throughput |
+//! | `coreml` | ORT CoreML | 1s | macOS with CoreML acceleration |
+//! | `coreml-fast` | ORT CoreML | 2s | macOS with CoreML acceleration and higher throughput |
 //! | `cuda` | ONNX Runtime CUDA | 1s | NVIDIA GPU |
 //! | `cuda-fast` | ONNX Runtime CUDA | 2s | NVIDIA GPU for higher throughput |
 //! | `migraphx` | ONNX Runtime MIGraphX | 1s | AMD GPU |
@@ -209,15 +209,16 @@
 //! Common features:
 //!
 //! - `online` (default): model download via [`ModelManager`]
-//! - `coreml`: native CoreML backend on macOS
+//! - `coreml`: ONNX Runtime CoreML execution provider on macOS
 //! - `cuda`: NVIDIA CUDA backend via ONNX Runtime
 //! - `migraphx`: AMD GPU backend via ONNX Runtime MIGraphX
 //! - `load-dynamic`: load the ONNX Runtime library at startup instead of static linking
 //!
 //! BLAS backends matter if you disable default features:
 //!
-//! - `x86_64` defaults to statically linked Intel MKL
-//! - non-`x86_64` defaults to statically linked OpenBLAS and needs a C toolchain
+//! - macOS defaults to the system Accelerate framework
+//! - non-macOS `x86_64` defaults to statically linked Intel MKL
+//! - other platforms default to statically linked OpenBLAS and need a C and Fortran toolchain
 //! - no-default builds must enable exactly one of `intel-mkl`, `openblas-static`, or `openblas-system`
 //!
 //! ```toml

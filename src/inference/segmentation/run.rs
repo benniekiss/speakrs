@@ -128,17 +128,6 @@ impl SegmentationModel {
     }
 
     fn run_window(&mut self, window: &[f32]) -> Result<Array2<f32>, SegmentationError> {
-        #[cfg(feature = "coreml")]
-        if let Some(ref native) = self.native_session {
-            return Self::run_native_single(
-                native,
-                window,
-                &mut self.input_buffer,
-                &self.cached_single_input_shape,
-            )
-            .map_err(SegmentationError::Ort);
-        }
-
         self.input_buffer.fill(0.0);
         self.input_buffer
             .slice_mut(ndarray::s![0, 0, ..window.len()])
@@ -160,17 +149,6 @@ impl SegmentationModel {
     }
 
     fn run_batch(&mut self, windows: &[&[f32]]) -> Result<Vec<Array2<f32>>, SegmentationError> {
-        #[cfg(feature = "coreml")]
-        if let Some(ref native) = self.native_batched_session {
-            return Self::run_native_batch(
-                native,
-                windows,
-                &mut self.primary_batch_input_buffer,
-                &self.cached_batch_input_shape,
-            )
-            .map_err(SegmentationError::Ort);
-        }
-
         self.primary_batch_input_buffer.fill(0.0);
         for (batch_idx, window) in windows.iter().enumerate() {
             self.primary_batch_input_buffer

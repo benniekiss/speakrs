@@ -1,12 +1,10 @@
 use ndarray::{Array2, s};
 use ort::value::TensorRef;
 
-#[cfg(feature = "coreml")]
-use super::tensor::{array2_slice, array3_slice};
 use super::{
     EmbeddingModel, FBANK_FEATURES, FBANK_FRAMES, MULTI_MASK_BATCH_SIZE, MaskedEmbeddingInput,
-    NUM_SPEAKERS, PRIMARY_BATCH_SIZE, SplitTailInput, array2_from_shape_vec, array2_slice_mut,
-    array3_slice_mut, first_output, select_mask,
+    NUM_SPEAKERS, PRIMARY_BATCH_SIZE, SPLIT_TAIL_BATCH_SIZE, SplitTailInput, array2_from_shape_vec,
+    array2_slice_mut, array3_slice_mut, first_output, select_mask,
 };
 
 impl EmbeddingModel {
@@ -113,31 +111,6 @@ impl EmbeddingModel {
 
         let full_mask_batch = MULTI_MASK_BATCH_SIZE * NUM_SPEAKERS;
 
-        #[cfg(feature = "coreml")]
-        {
-            self.ensure_native_multi_mask_loaded()?;
-        }
-        #[cfg(feature = "coreml")]
-        if let Some(native) = self.coreml.native_multi_mask_session.as_ref() {
-            let fbank_data = array3_slice(
-                &self.buffers.multi_mask_fbank_buffer,
-                "native multi-mask fbank input",
-            )?;
-            let masks_data = array2_slice(
-                &self.buffers.multi_mask_masks_buffer,
-                "native multi-mask masks input",
-            )?;
-            let (data, _) = native
-                .predict_cached(&[
-                    (&self.coreml.cached_multi_mask_fbank_shape, fbank_data),
-                    (&self.coreml.cached_multi_mask_masks_shape, masks_data),
-                ])
-                .map_err(|e| ort::Error::new(e.to_string()))?;
-            let batch =
-                array2_from_shape_vec(full_mask_batch, 256, data, "native multi-mask output")?;
-            return Ok(batch.slice(s![0..num_masks, ..]).to_owned());
-        }
-
         let use_batched =
             num_fbanks == MULTI_MASK_BATCH_SIZE && self.ort.multi_mask_batched_session.is_some();
 
@@ -200,7 +173,7 @@ impl EmbeddingModel {
         &mut self,
         inputs: &[SplitTailInput<'_>],
     ) -> Result<Array2<f32>, ort::Error> {
-        debug_assert!(inputs.len() <= PRIMARY_BATCH_SIZE);
+        debug_assert!(inputs.len() <= SPLIT_TAIL_BATCH_SIZE);
 
         let row_stride = FBANK_FRAMES * FBANK_FEATURES;
         for (batch_idx, input) in inputs.iter().enumerate() {
@@ -230,36 +203,11 @@ impl EmbeddingModel {
                 &mut self.buffers.split_primary_weights_batch_buffer.view_mut(),
             );
         }
-        if inputs.len() < PRIMARY_BATCH_SIZE {
+        if inputs.len() < SPLIT_TAIL_BATCH_SIZE {
             self.buffers
                 .split_primary_weights_batch_buffer
                 .slice_mut(s![inputs.len().., ..])
                 .fill(0.0);
-        }
-
-        #[cfg(feature = "coreml")]
-        {
-            self.ensure_native_tail_primary_batched_loaded()?;
-        }
-        #[cfg(feature = "coreml")]
-        if let Some(native) = self.coreml.native_tail_primary_batched_session.as_mut() {
-            let fbank_data = array3_slice(
-                &self.buffers.split_primary_feature_batch_buffer,
-                "native primary tail fbank input",
-            )?;
-            let weights_data = array2_slice(
-                &self.buffers.split_primary_weights_batch_buffer,
-                "native primary tail weights input",
-            )?;
-            let (data, _) = native
-                .predict_cached(&[
-                    (&self.coreml.cached_tail_fbank_shape, fbank_data),
-                    (&self.coreml.cached_tail_weights_shape, weights_data),
-                ])
-                .map_err(|e| ort::Error::new(e.to_string()))?;
-            let batch =
-                array2_from_shape_vec(PRIMARY_BATCH_SIZE, 256, data, "native primary tail output")?;
-            return Ok(batch.slice(s![0..inputs.len(), ..]).to_owned());
         }
 
         let fbank_tensor =
@@ -275,7 +223,7 @@ impl EmbeddingModel {
         let output = first_output(outputs.values(), "primary tail batched output")?;
         let (_shape, data) = output.try_extract_tensor::<f32>()?;
         let batch = array2_from_shape_vec(
-            PRIMARY_BATCH_SIZE,
+            SPLIT_TAIL_BATCH_SIZE,
             256,
             data.to_vec(),
             "primary tail batched output",

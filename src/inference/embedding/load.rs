@@ -27,6 +27,6 @@ impl EmbeddingModel {
         ensure_ort_ready()?;
 
         let model_path = model_path.as_ref();
-        LoadedSessions::load(model_path, mode, config)?.into_model(model_path, mode)
+        LoadedSessions::load(model_path, mode, config)?.into_model(model_path)
     }
 }

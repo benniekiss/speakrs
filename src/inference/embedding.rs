@@ -1,35 +1,19 @@
 use std::path::Path;
-use std::path::PathBuf;
-#[cfg(feature = "coreml")]
-use std::sync::Arc;
 
-#[cfg(feature = "coreml")]
-use crate::inference::coreml::{CachedInputShape, CoreMlModel, SharedCoreMlModel};
 use crate::inference::{ExecutionMode, ModelLoadError};
 use ndarray::{Array2, Array3, s};
-#[cfg(feature = "coreml")]
-use objc2_core_ml::MLComputeUnits;
 use ort::session::{HasSelectedOutputs, RunOptions, Session};
 
 mod batch;
-#[cfg(feature = "coreml")]
-mod chunk;
+
 mod fbank;
 mod load;
-#[cfg(feature = "coreml")]
-mod native;
 mod paths;
 mod run;
 mod session;
 mod tail;
 mod tensor;
 
-#[cfg(feature = "coreml")]
-use chunk::ChunkSessionSpec;
-#[cfg(feature = "coreml")]
-pub(crate) use chunk::{ChunkEmbeddingSession, ChunkResourceBundle, ChunkSessionInfo};
-#[cfg(feature = "coreml")]
-use paths::fp32_coreml_path;
 use paths::{
     batched_model_path, multi_mask_model_path, read_min_num_samples, select_mask,
     split_fbank_batched_model_path, split_fbank_model_path, split_tail_model_path,
@@ -41,6 +25,7 @@ use tensor::{
 
 const PRIMARY_BATCH_SIZE: usize = 64;
 const MULTI_MASK_BATCH_SIZE: usize = 32;
+const SPLIT_TAIL_BATCH_SIZE: usize = 32;
 const FBANK_BATCH_SIZE: usize = 32;
 const CHUNK_SPEAKER_BATCH_SIZE: usize = 3;
 const NUM_SPEAKERS: usize = 3;
@@ -60,10 +45,6 @@ pub(crate) struct SplitTailInput<'a> {
 }
 
 struct EmbeddingMeta {
-    #[cfg_attr(not(feature = "coreml"), allow(dead_code))]
-    model_path: PathBuf,
-    #[cfg_attr(not(feature = "coreml"), allow(dead_code))]
-    mode: ExecutionMode,
     sample_rate: usize,
     window_samples: usize,
     mask_frames: usize,
@@ -81,44 +62,6 @@ struct OrtEmbeddingState {
     multi_mask_session: Option<Session>,
     multi_mask_batched_session: Option<Session>,
     primary_batch_run_options: Option<RunOptions<HasSelectedOutputs>>,
-}
-
-#[cfg(feature = "coreml")]
-struct CoreMlEmbeddingState {
-    #[cfg(feature = "coreml")]
-    native_tail_session: Option<CoreMlModel>,
-    #[cfg(feature = "coreml")]
-    native_tail_batched_session: Option<CoreMlModel>,
-    #[cfg(feature = "coreml")]
-    native_tail_primary_batched_session: Option<CoreMlModel>,
-    #[cfg(feature = "coreml")]
-    native_fbank_session: Option<Arc<SharedCoreMlModel>>,
-    #[cfg(feature = "coreml")]
-    native_fbank_batched_session: Option<SharedCoreMlModel>,
-    #[cfg(feature = "coreml")]
-    native_fbank_30s_session: Option<Arc<SharedCoreMlModel>>,
-    #[cfg(feature = "coreml")]
-    cached_fbank_30s_shape: CachedInputShape,
-    #[cfg(feature = "coreml")]
-    native_multi_mask_session: Option<SharedCoreMlModel>,
-    #[cfg(feature = "coreml")]
-    native_chunk_compute_units: MLComputeUnits,
-    #[cfg(feature = "coreml")]
-    native_chunk_specs: Vec<ChunkSessionSpec>,
-    #[cfg(feature = "coreml")]
-    native_chunk_sessions: Vec<ChunkEmbeddingSession>,
-    #[cfg(feature = "coreml")]
-    cached_tail_fbank_shape: CachedInputShape,
-    #[cfg(feature = "coreml")]
-    cached_tail_weights_shape: CachedInputShape,
-    #[cfg(feature = "coreml")]
-    cached_fbank_single_shape: CachedInputShape,
-    #[cfg(feature = "coreml")]
-    cached_fbank_batch_shape: CachedInputShape,
-    #[cfg(feature = "coreml")]
-    cached_multi_mask_fbank_shape: CachedInputShape,
-    #[cfg(feature = "coreml")]
-    cached_multi_mask_masks_shape: CachedInputShape,
 }
 
 struct EmbeddingBuffers {
@@ -140,8 +83,6 @@ struct EmbeddingBuffers {
 pub struct EmbeddingModel {
     meta: EmbeddingMeta,
     ort: OrtEmbeddingState,
-    #[cfg(feature = "coreml")]
-    coreml: CoreMlEmbeddingState,
     buffers: EmbeddingBuffers,
 }
 
@@ -189,89 +130,30 @@ impl EmbeddingModel {
 
     /// Whether split fbank+tail models are available for chunk embedding
     pub(crate) fn prefers_chunk_embedding_path(&self) -> bool {
-        #[cfg(feature = "coreml")]
-        if self.meta.mode.is_coreml() {
-            return Self::has_native_fbank_model(&self.meta.model_path, self.meta.mode, 1)
-                && Self::has_native_tail_model(&self.meta.model_path, self.meta.mode, 1);
-        }
-
-        let ort_split =
-            self.ort.split_fbank_session.is_some() && self.ort.split_tail_session.is_some();
-        #[cfg(feature = "coreml")]
-        let ort_split =
-            ort_split || Self::has_native_tail_model(&self.meta.model_path, self.meta.mode, 1);
-        ort_split
+        self.ort.split_fbank_session.is_some() && self.ort.split_tail_session.is_some()
     }
 
     pub(crate) fn split_primary_batch_size(&self) -> usize {
-        #[cfg(feature = "coreml")]
-        if self.meta.mode.is_coreml() {
-            return usize::from(Self::has_native_tail_model(
-                &self.meta.model_path,
-                self.meta.mode,
-                PRIMARY_BATCH_SIZE,
-            )) * PRIMARY_BATCH_SIZE;
+        if self.ort.split_primary_tail_batched_session.is_some() {
+            return SPLIT_TAIL_BATCH_SIZE;
         }
 
-        if self.ort.split_primary_tail_batched_session.is_some() {
-            return PRIMARY_BATCH_SIZE;
-        }
-        #[cfg(feature = "coreml")]
-        if Self::has_native_tail_model(&self.meta.model_path, self.meta.mode, PRIMARY_BATCH_SIZE) {
-            return PRIMARY_BATCH_SIZE;
-        }
         0
     }
 
     /// Whether a batched fbank session is available for parallel chunk processing
     pub(crate) fn has_batched_fbank(&self) -> bool {
-        #[cfg(feature = "coreml")]
-        if self.meta.mode.is_coreml() {
-            return Self::has_native_fbank_model(
-                &self.meta.model_path,
-                self.meta.mode,
-                PRIMARY_BATCH_SIZE,
-            );
-        }
-
-        let has = self.ort.split_fbank_batched_session.is_some();
-        #[cfg(feature = "coreml")]
-        let has = has
-            || Self::has_native_fbank_model(
-                &self.meta.model_path,
-                self.meta.mode,
-                PRIMARY_BATCH_SIZE,
-            );
-        has
+        self.ort.split_fbank_batched_session.is_some()
     }
 
     /// Whether the multi-mask embedding model is available
     pub(crate) fn prefers_multi_mask_path(&self) -> bool {
-        #[cfg(feature = "coreml")]
-        if self.meta.mode.is_coreml() {
-            return Self::has_native_multi_mask_model(&self.meta.model_path, self.meta.mode);
-        }
-
-        let has = self.ort.multi_mask_session.is_some();
-        #[cfg(feature = "coreml")]
-        let has = has || Self::has_native_multi_mask_model(&self.meta.model_path, self.meta.mode);
-        has
+        self.ort.multi_mask_session.is_some()
     }
 
     /// Maximum batch size for multi-mask embedding, or 0 if unavailable
     pub(crate) fn multi_mask_batch_size(&self) -> usize {
-        #[cfg(feature = "coreml")]
-        if self.meta.mode.is_coreml() {
-            return usize::from(Self::has_native_multi_mask_model(
-                &self.meta.model_path,
-                self.meta.mode,
-            )) * MULTI_MASK_BATCH_SIZE;
-        }
-
         let has_batched = self.ort.multi_mask_batched_session.is_some();
-        #[cfg(feature = "coreml")]
-        let has_batched =
-            has_batched || Self::has_native_multi_mask_model(&self.meta.model_path, self.meta.mode);
         if has_batched {
             MULTI_MASK_BATCH_SIZE
         } else if self.ort.multi_mask_session.is_some() {
@@ -279,16 +161,6 @@ impl EmbeddingModel {
         } else {
             0
         }
-    }
-
-    #[cfg(all(test, feature = "coreml"))]
-    pub(crate) fn select_chunk_mask<'a>(
-        &self,
-        mask: &'a [f32],
-        clean_mask: Option<&'a [f32]>,
-        num_samples: usize,
-    ) -> &'a [f32] {
-        select_mask(mask, clean_mask, num_samples, self.meta.min_num_samples)
     }
 
     fn prepare_waveform(

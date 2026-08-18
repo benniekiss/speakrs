@@ -13,9 +13,6 @@ use std::sync::OnceLock;
 pub use embedding::EmbeddingModel;
 pub use segmentation::{SegmentationError, SegmentationModel};
 
-#[cfg(feature = "coreml")]
-pub(crate) mod coreml;
-
 use ort::ep;
 use ort::session::builder::SessionBuilder;
 
@@ -34,10 +31,10 @@ pub enum CoreMlComputeUnits {
 
 #[cfg(feature = "coreml")]
 impl CoreMlComputeUnits {
-    pub(crate) fn to_ml_compute_units(self) -> objc2_core_ml::MLComputeUnits {
+    fn to_ort(self) -> ep::coreml::ComputeUnits {
         match self {
-            Self::All => crate::inference::coreml::CoreMlModel::default_compute_units(),
-            Self::CpuAndNeuralEngine => objc2_core_ml::MLComputeUnits::CPUAndNeuralEngine,
+            Self::All => ep::coreml::ComputeUnits::All,
+            Self::CpuAndNeuralEngine => ep::coreml::ComputeUnits::CPUAndNeuralEngine,
         }
     }
 }
@@ -48,10 +45,10 @@ impl CoreMlComputeUnits {
 pub enum ExecutionMode {
     /// CPU-only via ORT (portable, slowest)
     Cpu,
-    /// Native CoreML with FP32 precision and ~1s step
+    /// ONNX Runtime CoreML execution provider with a ~1s step
     #[cfg_attr(docsrs, doc(cfg(feature = "coreml")))]
     CoreMl,
-    /// Native CoreML with W8A16 segmentation and ~2s step
+    /// ONNX Runtime CoreML execution provider with a ~2s step
     #[cfg_attr(docsrs, doc(cfg(feature = "coreml")))]
     CoreMlFast,
     /// NVIDIA GPU with concurrent fused seg+emb via crossbeam
@@ -66,7 +63,7 @@ pub enum ExecutionMode {
 }
 
 impl ExecutionMode {
-    /// Returns true when this mode uses native CoreML execution
+    /// Returns true when this mode uses the CoreML execution provider
     pub const fn is_coreml(self) -> bool {
         matches!(self, Self::CoreMl | Self::CoreMlFast)
     }
@@ -264,17 +261,41 @@ impl From<ExecutionModeError> for ort::Error {
 
 /// Map an execution mode to ORT execution providers
 ///
-/// CoreML modes use ORT CPU for any sessions that still go through ORT such as FBANK,
-/// While segmentation and embedding tail sessions use native CoreML directly
+/// CoreML modes register ONNX Runtime's CoreML execution provider. ONNX Runtime
+/// automatically falls back to its CPU provider for unsupported graph nodes.
 pub fn with_execution_mode(
     builder: SessionBuilder,
     mode: ExecutionMode,
 ) -> Result<SessionBuilder, ort::Error> {
+    with_execution_mode_and_coreml_units(builder, mode, CoreMlComputeUnits::All)
+}
+
+pub(crate) fn with_execution_mode_and_coreml_units(
+    builder: SessionBuilder,
+    mode: ExecutionMode,
+    _coreml_compute_units: CoreMlComputeUnits,
+) -> Result<SessionBuilder, ort::Error> {
     mode.validate()?;
 
     match mode {
-        ExecutionMode::Cpu | ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => Ok(builder
+        ExecutionMode::Cpu => Ok(builder
             .with_execution_providers([ep::CPU::default().with_arena_allocator(false).build()])?),
+        ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => {
+            #[cfg(feature = "coreml")]
+            {
+                Ok(builder.with_execution_providers([ep::CoreML::default()
+                    .with_model_format(ep::coreml::ModelFormat::MLProgram)
+                    .with_static_input_shapes(true)
+                    .with_compute_units(_coreml_compute_units.to_ort())
+                    .build()
+                    .error_on_failure()])?)
+            }
+
+            #[cfg(not(feature = "coreml"))]
+            {
+                unreachable!("mode validation rejects CoreML modes without the `coreml` feature")
+            }
+        }
         ExecutionMode::Cuda | ExecutionMode::CudaFast => {
             #[cfg(feature = "cuda")]
             {
@@ -486,8 +507,12 @@ mod tests {
         not(feature = "migraphx")
     ))]
     use super::ExecutionMode;
+    #[cfg(feature = "coreml")]
+    use super::with_execution_mode;
     #[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
     use super::{DynamicRuntimeError, OrtRuntimeError, ensure_ort_ready};
+    #[cfg(feature = "coreml")]
+    use ort::session::Session;
 
     #[cfg(not(feature = "coreml"))]
     #[test]
@@ -503,6 +528,20 @@ mod tests {
             error.to_string(),
             "coreml-fast requires the `coreml` Cargo feature"
         );
+    }
+
+    #[cfg(feature = "coreml")]
+    #[test]
+    fn coreml_modes_are_available_with_feature() {
+        ExecutionMode::CoreMl.validate().unwrap();
+        ExecutionMode::CoreMlFast.validate().unwrap();
+    }
+
+    #[cfg(feature = "coreml")]
+    #[test]
+    fn coreml_execution_provider_registers() {
+        let builder = Session::builder().unwrap();
+        with_execution_mode(builder, ExecutionMode::CoreMl).unwrap();
     }
 
     #[cfg(not(feature = "cuda"))]

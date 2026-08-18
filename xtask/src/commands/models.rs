@@ -7,11 +7,6 @@ use crate::python::{uv_run, uv_run_project};
 
 pub fn export() -> Result<()> {
     uv_run(&["scripts/export_models.py", "fixtures/models"])?;
-
-    if cfg!(target_os = "macos") {
-        export_coreml()?;
-    }
-
     Ok(())
 }
 
@@ -48,13 +43,8 @@ pub fn deploy() -> Result<()> {
         "wespeaker-voxceleb-resnet34-tail.onnx",
         "wespeaker-voxceleb-resnet34-tail-b3.onnx",
         "wespeaker-voxceleb-resnet34-tail-b32.onnx",
-        "segmentation-3.0*.mlmodelc/**",
-        "wespeaker-fbank*.mlmodelc/**",
-        "wespeaker-chunk-emb*.mlmodelc/**",
-        "wespeaker-voxceleb-resnet34-tail*.mlmodelc/**",
         "wespeaker-multimask-tail.onnx",
         "wespeaker-multimask-tail-b32.onnx",
-        "wespeaker-multimask-tail*.mlmodelc/**",
     ];
 
     let mut cmd = Command::new("hf");

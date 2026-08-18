@@ -46,3 +46,28 @@ pub(crate) use ndarray_linalg_system::{Eigh, Inverse, UPLO, error::LinalgError};
     ))
 ))]
 pub(crate) use ndarray_linalg_default::{Eigh, Inverse, UPLO, error::LinalgError};
+
+// `ndarray-linalg` intentionally leaves backend selection to its consumers.
+// On macOS, keep the platform framework in the link graph for the default backend.
+#[cfg(all(feature = "default-linalg", target_os = "macos"))]
+use accelerate_src as _;
+
+#[cfg(test)]
+mod tests {
+    use ndarray::array;
+
+    use super::{Eigh, Inverse, UPLO};
+
+    #[test]
+    fn selected_backend_supports_required_operations() {
+        let matrix = array![[2.0_f64, 1.0], [1.0, 2.0]];
+
+        let (eigenvalues, _) = matrix.clone().eigh(UPLO::Lower).unwrap();
+        let inverse = matrix.inv().unwrap();
+
+        assert!((eigenvalues[0] - 1.0).abs() < 1e-12);
+        assert!((eigenvalues[1] - 3.0).abs() < 1e-12);
+        assert!((inverse[[0, 0]] - 2.0 / 3.0).abs() < 1e-12);
+        assert!((inverse[[0, 1]] + 1.0 / 3.0).abs() < 1e-12);
+    }
+}

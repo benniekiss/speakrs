@@ -9,8 +9,8 @@ Hardware: Apple M4 Pro, macOS 26.3
 | Name | Description |
 |------|-------------|
 | pyannote community-1 (MPS) | [`pyannote/speaker-diarization-community-1`](https://huggingface.co/pyannote/speaker-diarization-community-1) on Apple GPU (MPS) |
-| speakrs CoreML | speakrs with native CoreML, 1s step, FP32 |
-| speakrs CoreML Fast | speakrs with native CoreML, 2s step, FP32 |
+| speakrs CoreML | speakrs with ONNX Runtime CoreML, 1s step, FP32 |
+| speakrs CoreML Fast | speakrs with ONNX Runtime CoreML, 2s step, FP32 |
 | SpeakerKit | [SpeakerKit](https://github.com/FluidInference/SpeakerKit) Swift implementation |
 
 ### VoxConverse Dev (216 files, 1217.8 min)

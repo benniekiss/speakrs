@@ -1,8 +1,6 @@
 use ndarray::{Array2, s};
 use ort::value::TensorRef;
 
-#[cfg(feature = "coreml")]
-use super::tensor::array3_slice;
 use super::{EmbeddingModel, FBANK_BATCH_SIZE, array2_from_shape_vec, first_output};
 
 impl EmbeddingModel {
@@ -18,24 +16,6 @@ impl EmbeddingModel {
                 .split_waveform_buffer
                 .slice_mut(s![0, 0, copy_len..])
                 .fill(0.0);
-        }
-
-        #[cfg(feature = "coreml")]
-        {
-            self.ensure_native_fbank_loaded()?;
-        }
-        #[cfg(feature = "coreml")]
-        if let Some(native) = self.coreml.native_fbank_session.as_ref() {
-            let input_data = array3_slice(
-                &self.buffers.split_waveform_buffer,
-                "native chunk fbank input",
-            )?;
-            let (data, out_shape) = native
-                .predict_cached(&[(&self.coreml.cached_fbank_single_shape, input_data)])
-                .map_err(|e| ort::Error::new(e.to_string()))?;
-            let frames = out_shape[1];
-            let features = out_shape[2];
-            return array2_from_shape_vec(frames, features, data, "native chunk fbank output");
         }
 
         let waveform_tensor =
@@ -82,11 +62,6 @@ impl EmbeddingModel {
             }
 
             self.fill_split_fbank_batch_buffer(batch);
-
-            #[cfg(feature = "coreml")]
-            if self.try_push_native_fbank_batch(&mut results, batch.len())? {
-                continue;
-            }
 
             if batch.len() < FBANK_BATCH_SIZE {
                 for audio in batch {
@@ -147,27 +122,5 @@ impl EmbeddingModel {
             results.push(batch);
         }
         Ok(())
-    }
-
-    #[cfg(feature = "coreml")]
-    fn try_push_native_fbank_batch(
-        &mut self,
-        results: &mut Vec<Array2<f32>>,
-        count: usize,
-    ) -> Result<bool, ort::Error> {
-        self.ensure_native_fbank_batched_loaded()?;
-        let Some(native) = self.coreml.native_fbank_batched_session.as_ref() else {
-            return Ok(false);
-        };
-
-        let input_data = array3_slice(
-            &self.buffers.split_fbank_batch_buffer,
-            "native batched fbank input",
-        )?;
-        let (data, out_shape) = native
-            .predict_cached(&[(&self.coreml.cached_fbank_batch_shape, input_data)])
-            .map_err(|e| ort::Error::new(e.to_string()))?;
-        Self::push_fbank_batch_results(results, &data, out_shape[1], out_shape[2], count)?;
-        Ok(true)
     }
 }

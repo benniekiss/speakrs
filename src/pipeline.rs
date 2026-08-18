@@ -31,9 +31,6 @@ use concurrent::ConcurrentEmbeddingRunner;
 mod post_inference;
 pub use post_inference::post_inference;
 
-#[cfg(feature = "coreml")]
-mod chunk_embedding;
-
 mod builder;
 pub use builder::PipelineBuilder;
 
@@ -332,21 +329,6 @@ impl<'a> PipelineRunner<'a> {
             return Ok(Vec::new());
         }
 
-        // try batch chunk embedding for the concurrent path before falling back
-        #[cfg(feature = "coreml")]
-        if matches!(self.inference_path(), InferencePath::Concurrent)
-            && let Some(results) = chunk_embedding::try_batch_chunk_embedding(
-                self.seg_model,
-                self.emb_model,
-                self.powerset,
-                self.plda,
-                files,
-                config,
-            )?
-        {
-            return Ok(results);
-        }
-
         // fallback: per-file sequential with post-inference overlap
         files
             .iter()
@@ -357,18 +339,7 @@ impl<'a> PipelineRunner<'a> {
     fn run_inference(&mut self, audio: &[f32]) -> Result<InferenceArtifacts, PipelineError> {
         match self.inference_path() {
             InferencePath::Sequential => self.run_sequential_inference(audio),
-            InferencePath::Concurrent => {
-                #[cfg(feature = "coreml")]
-                if let Some(result) = chunk_embedding::try_chunk_embedding(
-                    self.seg_model,
-                    self.emb_model,
-                    self.powerset,
-                    audio,
-                )? {
-                    return Ok(result);
-                }
-                self.run_concurrent_inference(audio)
-            }
+            InferencePath::Concurrent => self.run_concurrent_inference(audio),
         }
     }
 
@@ -432,23 +403,8 @@ impl<'a> PipelineRunner<'a> {
         let (tx, rx) = crossbeam_channel::bounded::<Array2<f32>>(64);
 
         let inference_start = std::time::Instant::now();
-        let use_parallel_seg = matches!(
-            self.seg_model.mode(),
-            ExecutionMode::CoreMl | ExecutionMode::CoreMlFast
-        );
         let (segmentation_result, embedding_result) = std::thread::scope(|scope| {
-            let segmentation_handle = if use_parallel_seg {
-                #[cfg(feature = "coreml")]
-                {
-                    scope.spawn(|| self.seg_model.run_streaming_parallel(audio, tx, 4, None))
-                }
-                #[cfg(not(feature = "coreml"))]
-                {
-                    scope.spawn(|| self.seg_model.run_streaming(audio, tx))
-                }
-            } else {
-                scope.spawn(|| self.seg_model.run_streaming(audio, tx))
-            };
+            let segmentation_handle = scope.spawn(|| self.seg_model.run_streaming(audio, tx));
 
             let embedding_result = match embedding_path {
                 EmbeddingPath::MultiMask => concurrent_embedding_runner.run_multi_mask(

@@ -9,7 +9,7 @@ Development CLI for speakrs. Two binaries:
 
 | Command | Description |
 |---------|-------------|
-| `models` | Export ONNX models, CoreML conversion, deploy to HF |
+| `models` | Export and deploy ONNX models to HF |
 | `fixtures` | Regenerate test fixtures via Python |
 | `compare` | Diarization comparisons (run, rttm, accuracy) |
 | `bench` | Local benchmarks (run, compare, der) |

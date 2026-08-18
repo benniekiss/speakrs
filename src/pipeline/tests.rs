@@ -4,8 +4,6 @@ use std::fs::File;
 use std::path::{Path, PathBuf};
 
 use super::*;
-#[cfg(feature = "coreml")]
-use crate::inference::ExecutionMode;
 use crate::inference::{DynamicRuntimeError, ModelLoadError, OrtRuntimeError};
 
 // --- test helpers ---
@@ -214,30 +212,6 @@ impl PipelineTestHarness {
             PipelineBuilder::from_dir(self.models_dir(), ExecutionMode::Cpu).build(),
         )
     }
-
-    #[cfg(feature = "coreml")]
-    fn coreml_seg_model(&self) -> Option<SegmentationModel> {
-        load_model_or_skip(SegmentationModel::with_mode(
-            self.segmentation_model_path(),
-            SEGMENTATION_STEP_SECONDS as f32,
-            ExecutionMode::CoreMl,
-        ))
-    }
-
-    #[cfg(feature = "coreml")]
-    fn coreml_emb_model(&self) -> Option<EmbeddingModel> {
-        load_model_or_skip(EmbeddingModel::with_mode(
-            self.embedding_model_path(),
-            ExecutionMode::CoreMl,
-        ))
-    }
-
-    #[cfg(feature = "coreml")]
-    fn coreml_pipeline(&self) -> Option<OwnedDiarizationPipeline> {
-        build_pipeline_or_skip(
-            PipelineBuilder::from_dir(self.models_dir(), ExecutionMode::CoreMl).build(),
-        )
-    }
 }
 
 fn custom_pipeline_config() -> PipelineConfig {
@@ -261,8 +235,10 @@ fn load_wav_samples(path: &Path) -> (Vec<f32>, u32) {
         let chunk_size = u32::from_le_bytes(data[pos + 4..pos + 8].try_into().unwrap()) as usize;
         if chunk_id == b"data" {
             let samples = data[pos + 8..pos + 8 + chunk_size]
-                .chunks_exact(2)
-                .map(|bytes| i16::from_le_bytes([bytes[0], bytes[1]]) as f32 / 32768.0)
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .map(|bytes| i16::from_le_bytes(*bytes) as f32 / 32768.0)
                 .collect();
             return (samples, sample_rate);
         }
@@ -307,23 +283,6 @@ fn assert_embedding_tensor_close(actual: &Array3<f32>, expected: &Array3<f32>, e
                 if (lhs - rhs).abs() > epsilon || lhs.is_nan() != rhs.is_nan() {
                     panic!(
                         "chunk={chunk_idx} speaker={speaker_idx} dim={dim_idx} left={lhs} right={rhs}"
-                    );
-                }
-            }
-        }
-    }
-}
-
-#[cfg(feature = "coreml")]
-fn assert_segmentation_tensor_matches(actual: &Array3<f32>, expected: &Array3<f32>) {
-    for chunk_idx in 0..actual.shape()[0] {
-        for frame_idx in 0..actual.shape()[1] {
-            for speaker_idx in 0..actual.shape()[2] {
-                let lhs = actual[[chunk_idx, frame_idx, speaker_idx]];
-                let rhs = expected[[chunk_idx, frame_idx, speaker_idx]];
-                if lhs != rhs {
-                    panic!(
-                        "chunk={chunk_idx} frame={frame_idx} speaker={speaker_idx} left={lhs} right={rhs}"
                     );
                 }
             }
@@ -427,146 +386,6 @@ fn extract_embeddings_matches_python_fixture() {
     assert_embedding_tensor_close(&embeddings, &expected, 5e-3);
 }
 
-#[cfg(feature = "coreml")]
-#[test]
-fn fast_apple_segmentation_matches_python_fixture() {
-    let harness = PipelineTestHarness::load();
-    let Some(mut seg_model) = harness.coreml_seg_model() else {
-        return;
-    };
-    let expected: Array3<f32> = load_fixture_array3("pipeline_segmentation_data.npy");
-    let powerset = PowersetMapping::new(3, 2);
-    let raw_windows = seg_model.run(harness.audio()).unwrap();
-    let segmentations = decode_windows(raw_windows, &powerset);
-
-    assert_segmentation_tensor_matches(&segmentations, &expected);
-}
-
-#[cfg(feature = "coreml")]
-#[test]
-fn fast_apple_embeddings_match_python_fixture() {
-    let harness = PipelineTestHarness::load();
-    let Some(seg_model) = harness.cpu_seg_model() else {
-        return;
-    };
-    let Some(mut emb_model) = harness.coreml_emb_model() else {
-        return;
-    };
-    let segmentations: Array3<f32> = load_fixture_array3("pipeline_segmentation_data.npy");
-    let expected: Array3<f32> = load_fixture_array3("pipeline_embeddings_data.npy");
-    let embeddings =
-        extract_embeddings(&seg_model, &mut emb_model, harness.audio(), &segmentations).unwrap();
-
-    assert_embedding_tensor_close(&embeddings, &expected, 5e-3);
-}
-
-#[cfg(feature = "coreml")]
-#[test]
-fn fast_apple_split_primary_batch_matches_single_tail_path() {
-    let harness = PipelineTestHarness::load();
-    let Some(seg_model) = harness.cpu_seg_model() else {
-        return;
-    };
-    let Some(mut emb_model) = harness.coreml_emb_model() else {
-        return;
-    };
-    let segmentations: Array3<f32> = load_fixture_array3("pipeline_segmentation_data.npy");
-    let mut fbanks = Vec::new();
-    let mut weights = Vec::new();
-    let mut expected = Vec::new();
-
-    'outer: for chunk_idx in 0..segmentations.shape()[0] {
-        let chunk_audio = chunk_audio(harness.audio(), &seg_model, chunk_idx);
-        let chunk_segmentations = segmentations.slice(s![chunk_idx, .., ..]);
-        let clean_masks = clean_masks(&chunk_segmentations);
-        let fbank = emb_model.compute_chunk_fbank(chunk_audio).unwrap();
-
-        for speaker_idx in 0..chunk_segmentations.ncols() {
-            let mask = chunk_segmentations.column(speaker_idx).to_owned();
-            let clean_mask = clean_masks.column(speaker_idx).to_owned();
-            let used_mask = emb_model
-                .select_chunk_mask(
-                    mask.as_slice().unwrap(),
-                    Some(clean_mask.as_slice().unwrap()),
-                    chunk_audio.len(),
-                )
-                .to_vec();
-            expected.push(
-                emb_model
-                    .embed_masked(
-                        chunk_audio,
-                        mask.as_slice().unwrap(),
-                        Some(clean_mask.as_slice().unwrap()),
-                    )
-                    .unwrap(),
-            );
-            fbanks.push(fbank.clone());
-            weights.push(used_mask);
-            if fbanks.len() == emb_model.split_primary_batch_size() {
-                break 'outer;
-            }
-        }
-    }
-
-    assert_eq!(fbanks.len(), emb_model.split_primary_batch_size());
-    let batch_inputs: Vec<_> = fbanks
-        .iter()
-        .zip(weights.iter())
-        .map(
-            |(fbank, weights)| crate::inference::embedding::SplitTailInput {
-                fbank,
-                weights: weights.as_slice(),
-            },
-        )
-        .collect();
-    let batched = emb_model.embed_tail_batch_inputs(&batch_inputs).unwrap();
-
-    for (row_idx, expected_row) in expected.iter().enumerate() {
-        for dim_idx in 0..expected_row.len() {
-            let lhs = batched[[row_idx, dim_idx]];
-            let rhs = expected_row[dim_idx];
-            if (lhs - rhs).abs() > 5e-3 || lhs.is_nan() != rhs.is_nan() {
-                panic!("row={row_idx} dim={dim_idx} left={lhs} right={rhs}");
-            }
-        }
-    }
-}
-
-#[cfg(feature = "coreml")]
-#[test]
-fn fast_apple_single_embedding_matches_python_fixture() {
-    let harness = PipelineTestHarness::load();
-    let Some(seg_model) = harness.cpu_seg_model() else {
-        return;
-    };
-    let Some(mut emb_model) = harness.coreml_emb_model() else {
-        return;
-    };
-    let segmentations: Array3<f32> = load_fixture_array3("pipeline_segmentation_data.npy");
-    let expected: Array3<f32> = load_fixture_array3("pipeline_embeddings_data.npy");
-    let chunk_idx = 0;
-    let speaker_idx = 1;
-    let chunk_segmentations = segmentations.slice(s![chunk_idx, .., ..]);
-    let clean = clean_masks(&chunk_segmentations);
-    let mask = chunk_segmentations.column(speaker_idx).to_vec();
-    let clean_mask = clean.column(speaker_idx).to_vec();
-    let embedding = emb_model
-        .embed_masked(
-            chunk_audio(harness.audio(), &seg_model, chunk_idx),
-            &mask,
-            Some(&clean_mask),
-        )
-        .unwrap();
-
-    for dim_idx in 0..embedding.len() {
-        let lhs = embedding[dim_idx];
-        let rhs = expected[[chunk_idx, speaker_idx, dim_idx]];
-        if (lhs - rhs).abs() > 5e-4 || lhs.is_nan() != rhs.is_nan() {
-            panic!("dim={dim_idx} left={lhs} right={rhs}");
-        }
-    }
-}
-
 #[test]
 fn run_inference_only_plus_finish_matches_run_with_config() {
     let harness = PipelineTestHarness::load();
@@ -630,28 +449,4 @@ fn borrowed_pipeline_new_with_config_stores_custom_default_config() {
         expected.speaker_keep_threshold
     );
     assert_eq!(actual.reconstruct_method, expected.reconstruct_method);
-}
-
-#[cfg(feature = "coreml")]
-#[test]
-fn chunk_embedding_pipelined_vs_sequential_baseline() {
-    let harness = PipelineTestHarness::load();
-    let Some(mut pipeline) = harness.coreml_pipeline() else {
-        return;
-    };
-
-    // multi-chunk audio (triggers pipelined path)
-    // run full pipeline twice: chunk embedding path uses try_chunk_embedding
-    // which internally picks pipelined vs sequential based on chunk count
-    let result_a = pipeline.run(harness.audio()).unwrap();
-    let result_b = pipeline.run(harness.audio()).unwrap();
-
-    // both runs should produce identical RTTM
-    assert_eq!(result_a.segments, result_b.segments);
-
-    // also verify run_inference_only + finish_post_inference round-trips
-    let config = pipeline.pipeline_config();
-    let artifacts = pipeline.run_inference_only(harness.audio()).unwrap();
-    let result_split = pipeline.finish_post_inference(artifacts, &config).unwrap();
-    assert_eq!(result_a.segments, result_split.segments);
 }

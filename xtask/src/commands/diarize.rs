@@ -129,7 +129,6 @@ pub fn run(
             };
             let runtime_config = RuntimeConfig {
                 chunk_emb_workers,
-                #[cfg(feature = "coreml")]
                 chunk_emb_compute_units: compute_units,
             };
             if chunk_emb_workers > 1 || compute_units != CoreMlComputeUnits::All {
