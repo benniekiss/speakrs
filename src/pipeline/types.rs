@@ -13,7 +13,8 @@ pub(super) use data::{
 };
 pub use error::PipelineError;
 pub(super) use extract::{
-    Array3Writer, MultiMaskBatch, flush_masked, flush_multi_mask_audio, flush_split,
+    Array3Writer, MultiMaskBatch, MultiMaskTiming, flush_masked, flush_multi_mask_audio,
+    flush_split, trace_multi_mask_timing,
 };
 pub(super) use layout::{ChunkLayout, chunk_audio_raw};
 #[cfg(test)]

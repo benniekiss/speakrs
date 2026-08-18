@@ -2,9 +2,9 @@ use ndarray::{Array2, s};
 use ort::value::TensorRef;
 
 use super::{
-    EmbeddingModel, FBANK_FEATURES, FBANK_FRAMES, MULTI_MASK_BATCH_SIZE, MaskedEmbeddingInput,
-    NUM_SPEAKERS, PRIMARY_BATCH_SIZE, SPLIT_TAIL_BATCH_SIZE, SplitTailInput, array2_from_shape_vec,
-    array2_slice_mut, array3_slice_mut, first_output, select_mask,
+    BatchPhaseTiming, EmbeddingModel, FBANK_FEATURES, FBANK_FRAMES, MULTI_MASK_BATCH_SIZE,
+    MaskedEmbeddingInput, NUM_SPEAKERS, PRIMARY_BATCH_SIZE, SPLIT_TAIL_BATCH_SIZE, SplitTailInput,
+    array2_from_shape_vec, array2_slice_mut, array3_slice_mut, first_output, select_mask,
 };
 
 impl EmbeddingModel {
@@ -68,11 +68,13 @@ impl EmbeddingModel {
         Ok(stacked)
     }
 
-    pub(crate) fn embed_multi_mask_batch(
+    pub(crate) fn embed_multi_mask_batch_profiled(
         &mut self,
         fbanks: &[&Array2<f32>],
         masks: &[&[f32]],
-    ) -> Result<Array2<f32>, ort::Error> {
+    ) -> Result<(Array2<f32>, BatchPhaseTiming), ort::Error> {
+        let mut timing = BatchPhaseTiming::default();
+        let input_start = std::time::Instant::now();
         let num_fbanks = fbanks.len();
         let num_masks = masks.len();
         debug_assert_eq!(num_masks, num_fbanks * NUM_SPEAKERS);
@@ -110,8 +112,10 @@ impl EmbeddingModel {
         }
 
         let use_batched = num_fbanks > 1 && self.ort.multi_mask_batched_session.is_some();
+        timing.input += input_start.elapsed();
 
         if use_batched {
+            let inference_start = std::time::Instant::now();
             let fbank_tensor =
                 TensorRef::from_array_view(self.buffers.multi_mask_fbank_buffer.view())?;
             let masks_tensor =
@@ -124,12 +128,17 @@ impl EmbeddingModel {
                 .run(ort::inputs!["fbank" => fbank_tensor, "masks" => masks_tensor])?;
             let output = first_output(outputs.values(), "multi-mask batched output")?;
             let (_shape, data) = output.try_extract_tensor::<f32>()?;
-            array2_from_shape_vec(
+            timing.inference += inference_start.elapsed();
+
+            let output_start = std::time::Instant::now();
+            let embeddings = array2_from_shape_vec(
                 num_masks,
                 256,
                 data[..num_masks * 256].to_vec(),
                 "multi-mask batched output",
-            )
+            )?;
+            timing.output += output_start.elapsed();
+            Ok((embeddings, timing))
         } else {
             let mut all_embeddings = Array2::<f32>::zeros((num_masks, 256));
             for fbank_idx in 0..num_fbanks {
@@ -144,6 +153,7 @@ impl EmbeddingModel {
                     .buffers
                     .multi_mask_masks_buffer
                     .slice(s![mask_start..mask_end, ..]);
+                let inference_start = std::time::Instant::now();
                 let fbank_tensor = TensorRef::from_array_view(fbank_slice.view())?;
                 let masks_tensor = TensorRef::from_array_view(masks_slice.view())?;
                 let outputs = self
@@ -154,14 +164,18 @@ impl EmbeddingModel {
                     .run(ort::inputs!["fbank" => fbank_tensor, "masks" => masks_tensor])?;
                 let output = first_output(outputs.values(), "multi-mask output")?;
                 let (_shape, data) = output.try_extract_tensor::<f32>()?;
+                timing.inference += inference_start.elapsed();
+
+                let output_start = std::time::Instant::now();
                 for (local_idx, row_idx) in (mask_start..mask_end).enumerate() {
                     let start = local_idx * 256;
                     all_embeddings
                         .row_mut(row_idx)
                         .assign(&ndarray::ArrayView1::from(&data[start..start + 256]));
                 }
+                timing.output += output_start.elapsed();
             }
-            Ok(all_embeddings)
+            Ok((all_embeddings, timing))
         }
     }
 

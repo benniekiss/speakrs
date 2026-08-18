@@ -6,8 +6,9 @@ use crate::powerset::PowersetMapping;
 
 use super::config::MIN_SPEAKER_ACTIVITY;
 use super::types::{
-    Array3Writer, MultiMaskBatch, PendingEmbedding, PendingSplitEmbedding, PipelineError,
-    chunk_audio_raw, flush_masked, flush_multi_mask_audio, flush_split,
+    Array3Writer, MultiMaskBatch, MultiMaskTiming, PendingEmbedding, PendingSplitEmbedding,
+    PipelineError, chunk_audio_raw, flush_masked, flush_multi_mask_audio, flush_split,
+    trace_multi_mask_timing,
 };
 use super::{clean_masks, select_speaker_weights, write_speaker_mask_to_slice};
 
@@ -155,8 +156,7 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
 
         let mut total_recv_wait_us = 0u64;
         let mut total_decode_us = 0u64;
-        let mut total_fbank_us = 0u64;
-        let mut total_gpu_predict_us = 0u64;
+        let mut timing = MultiMaskTiming::default();
         let mut flush_count = 0u32;
 
         loop {
@@ -227,10 +227,7 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                     chunk_indices: &chunk_indices,
                     num_speakers: self.num_speakers,
                 };
-                let (fbank_us, gpu_us) =
-                    flush_multi_mask_audio(embedding_model, &batch, &mut Array3Writer(emb))?;
-                total_fbank_us += fbank_us;
-                total_gpu_predict_us += gpu_us;
+                timing += flush_multi_mask_audio(embedding_model, &batch, &mut Array3Writer(emb))?;
                 flush_count += 1;
                 audio_buffer.clear();
                 flat_masks.fill(0.0);
@@ -253,10 +250,7 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                 chunk_indices: &chunk_indices,
                 num_speakers: self.num_speakers,
             };
-            let (fbank_us, gpu_us) =
-                flush_multi_mask_audio(embedding_model, &batch, &mut Array3Writer(emb))?;
-            total_fbank_us += fbank_us;
-            total_gpu_predict_us += gpu_us;
+            timing += flush_multi_mask_audio(embedding_model, &batch, &mut Array3Writer(emb))?;
             flush_count += 1;
         }
 
@@ -265,10 +259,9 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
             chunks = chunk_idx,
             recv_wait_ms = total_recv_wait_us / 1000,
             decode_ms = total_decode_us / 1000,
-            fbank_ms = total_fbank_us / 1000,
-            gpu_predict_ms = total_gpu_predict_us / 1000,
             "Multi-mask embedding timing"
         );
+        trace_multi_mask_timing(timing, flush_count as usize, chunk_idx);
 
         self.finalize(seg_array, emb_array, chunk_idx, total_windows)
     }

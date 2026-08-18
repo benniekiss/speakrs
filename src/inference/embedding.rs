@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{path::Path, time::Duration};
 
 use crate::inference::{ExecutionMode, ModelLoadError};
 use ndarray::{Array2, Array3, s};
@@ -32,6 +32,21 @@ const NUM_SPEAKERS: usize = 3;
 const FBANK_FRAMES: usize = 998;
 const FBANK_FEATURES: usize = 80;
 const MASK_FRAMES: usize = 589;
+
+#[derive(Debug, Default, Clone, Copy)]
+pub(crate) struct BatchPhaseTiming {
+    pub input: Duration,
+    pub inference: Duration,
+    pub output: Duration,
+}
+
+impl std::ops::AddAssign for BatchPhaseTiming {
+    fn add_assign(&mut self, rhs: Self) {
+        self.input += rhs.input;
+        self.inference += rhs.inference;
+        self.output += rhs.output;
+    }
+}
 
 pub struct MaskedEmbeddingInput<'a> {
     pub audio: &'a [f32],

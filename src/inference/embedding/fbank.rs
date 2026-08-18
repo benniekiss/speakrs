@@ -1,7 +1,9 @@
 use ndarray::{Array2, s};
 use ort::value::TensorRef;
 
-use super::{EmbeddingModel, FBANK_BATCH_SIZE, array2_from_shape_vec, first_output};
+use super::{
+    BatchPhaseTiming, EmbeddingModel, FBANK_BATCH_SIZE, array2_from_shape_vec, first_output,
+};
 
 impl EmbeddingModel {
     /// Compute fbank features for a single audio chunk via the split fbank model
@@ -38,16 +40,28 @@ impl EmbeddingModel {
         &mut self,
         audios: &[&[f32]],
     ) -> Result<Vec<Array2<f32>>, ort::Error> {
+        self.compute_chunk_fbanks_batch_profiled(audios)
+            .map(|(fbanks, _)| fbanks)
+    }
+
+    pub(crate) fn compute_chunk_fbanks_batch_profiled(
+        &mut self,
+        audios: &[&[f32]],
+    ) -> Result<(Vec<Array2<f32>>, BatchPhaseTiming), ort::Error> {
+        let mut timing = BatchPhaseTiming::default();
         let has_batched = self.has_batched_fbank();
         if !has_batched {
             tracing::debug!(
                 count = audios.len(),
                 "fbank: no batched session, falling back to per-window"
             );
-            return audios
+            let start = std::time::Instant::now();
+            let fbanks = audios
                 .iter()
                 .map(|audio| self.compute_chunk_fbank(audio))
-                .collect();
+                .collect::<Result<_, _>>()?;
+            timing.inference += start.elapsed();
+            return Ok((fbanks, timing));
         }
         let mut results = Vec::with_capacity(audios.len());
         for batch_start in (0..audios.len()).step_by(FBANK_BATCH_SIZE) {
@@ -55,14 +69,19 @@ impl EmbeddingModel {
             let batch = &audios[batch_start..batch_end];
 
             if batch.len() == 1 {
+                let start = std::time::Instant::now();
                 for audio in batch {
                     results.push(self.compute_chunk_fbank(audio)?);
                 }
+                timing.inference += start.elapsed();
                 continue;
             }
 
+            let prepare_start = std::time::Instant::now();
             self.fill_split_fbank_batch_buffer(batch);
+            timing.input += prepare_start.elapsed();
 
+            let inference_start = std::time::Instant::now();
             let waveform_tensor =
                 TensorRef::from_array_view(self.buffers.split_fbank_batch_buffer.view())?;
             let outputs = self
@@ -73,6 +92,9 @@ impl EmbeddingModel {
                 .run(ort::inputs!["waveform" => waveform_tensor])?;
             let output = first_output(outputs.values(), "batched chunk fbank output")?;
             let (shape, data) = output.try_extract_tensor::<f32>()?;
+            timing.inference += inference_start.elapsed();
+
+            let output_start = std::time::Instant::now();
             Self::push_fbank_batch_results(
                 &mut results,
                 data,
@@ -80,9 +102,10 @@ impl EmbeddingModel {
                 shape[2] as usize,
                 batch.len(),
             )?;
+            timing.output += output_start.elapsed();
         }
 
-        Ok(results)
+        Ok((results, timing))
     }
 
     fn fill_split_fbank_batch_buffer(&mut self, audios: &[&[f32]]) {

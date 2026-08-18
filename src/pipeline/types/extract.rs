@@ -1,7 +1,9 @@
 use ndarray::{Array2, Array3, s};
-use tracing::debug;
+use tracing::{debug, trace};
 
-use crate::inference::embedding::{EmbeddingModel, MaskedEmbeddingInput, SplitTailInput};
+use crate::inference::embedding::{
+    BatchPhaseTiming, EmbeddingModel, MaskedEmbeddingInput, SplitTailInput,
+};
 use crate::pipeline::{
     MIN_SPEAKER_ACTIVITY, clean_masks, select_speaker_weights, write_speaker_mask_to_slice,
 };
@@ -219,6 +221,7 @@ impl DecodedSegmentations {
         let mut active_flags: Vec<bool> = Vec::with_capacity(batch_size * num_speakers);
         let mut chunk_indices: Vec<usize> = Vec::with_capacity(batch_size);
         let mut batches = 0usize;
+        let mut timing = MultiMaskTiming::default();
 
         for chunk_idx in 0..num_chunks {
             let chunk_audio = layout.chunk_audio(audio, chunk_idx);
@@ -257,7 +260,7 @@ impl DecodedSegmentations {
                     chunk_indices: &chunk_indices,
                     num_speakers,
                 };
-                flush_multi_mask_audio(emb_model, &batch, &mut storage)?;
+                timing += flush_multi_mask_audio(emb_model, &batch, &mut storage)?;
                 batches += 1;
                 audio_buffer.clear();
                 flat_masks.fill(0.0);
@@ -275,7 +278,7 @@ impl DecodedSegmentations {
                 chunk_indices: &chunk_indices,
                 num_speakers,
             };
-            flush_multi_mask_audio(emb_model, &batch, &mut storage)?;
+            timing += flush_multi_mask_audio(emb_model, &batch, &mut storage)?;
             batches += 1;
         }
 
@@ -284,6 +287,7 @@ impl DecodedSegmentations {
             total_chunks = num_chunks,
             "Multi-mask embeddings complete"
         );
+        trace_multi_mask_timing(timing, batches, num_chunks);
 
         Ok(())
     }
@@ -382,18 +386,51 @@ pub(in crate::pipeline) struct MultiMaskBatch<'a> {
     pub num_speakers: usize,
 }
 
+#[derive(Debug, Default, Clone, Copy)]
+pub(in crate::pipeline) struct MultiMaskTiming {
+    pub fbank: BatchPhaseTiming,
+    pub tail: BatchPhaseTiming,
+    pub storage: std::time::Duration,
+}
+
+impl std::ops::AddAssign for MultiMaskTiming {
+    fn add_assign(&mut self, rhs: Self) {
+        self.fbank += rhs.fbank;
+        self.tail += rhs.tail;
+        self.storage += rhs.storage;
+    }
+}
+
+pub(in crate::pipeline) fn trace_multi_mask_timing(
+    timing: MultiMaskTiming,
+    batches: usize,
+    chunks: usize,
+) {
+    trace!(
+        batches,
+        chunks,
+        fbank_input_ms = timing.fbank.input.as_millis(),
+        fbank_inference_ms = timing.fbank.inference.as_millis(),
+        fbank_output_ms = timing.fbank.output.as_millis(),
+        tail_input_ms = timing.tail.input.as_millis(),
+        tail_inference_ms = timing.tail.inference.as_millis(),
+        tail_output_ms = timing.tail.output.as_millis(),
+        embedding_store_ms = timing.storage.as_millis(),
+        "Multi-mask phase timing"
+    );
+}
+
 pub(in crate::pipeline) fn flush_multi_mask_audio<S: EmbeddingStorage>(
     emb_model: &mut EmbeddingModel,
     batch: &MultiMaskBatch<'_>,
     storage: &mut S,
-) -> Result<(u64, u64), PipelineError> {
+) -> Result<MultiMaskTiming, PipelineError> {
     debug_assert_eq!(batch.audio_slices.len(), batch.chunk_indices.len());
     let num_masks = batch.audio_slices.len() * batch.num_speakers;
     debug_assert_eq!(batch.active_flags.len(), num_masks);
 
-    let fbank_start = std::time::Instant::now();
-    let fbanks = emb_model.compute_chunk_fbanks_batch(batch.audio_slices)?;
-    let fbank_us = fbank_start.elapsed().as_micros() as u64;
+    let (fbanks, fbank_timing) =
+        emb_model.compute_chunk_fbanks_batch_profiled(batch.audio_slices)?;
 
     let fbank_refs: Vec<_> = fbanks.iter().collect();
     let mask_refs: Vec<&[f32]> = batch
@@ -402,9 +439,10 @@ pub(in crate::pipeline) fn flush_multi_mask_audio<S: EmbeddingStorage>(
         .take(num_masks)
         .collect();
 
-    let predict_start = std::time::Instant::now();
-    let batch_embeddings = emb_model.embed_multi_mask_batch(&fbank_refs, &mask_refs)?;
+    let (batch_embeddings, tail_timing) =
+        emb_model.embed_multi_mask_batch_profiled(&fbank_refs, &mask_refs)?;
 
+    let storage_start = std::time::Instant::now();
     for (fbank_idx, &chunk_idx) in batch.chunk_indices.iter().enumerate() {
         for speaker_idx in 0..batch.num_speakers {
             let mask_idx = fbank_idx * batch.num_speakers + speaker_idx;
@@ -419,7 +457,11 @@ pub(in crate::pipeline) fn flush_multi_mask_audio<S: EmbeddingStorage>(
             );
         }
     }
-    let predict_us = predict_start.elapsed().as_micros() as u64;
+    let storage = storage_start.elapsed();
 
-    Ok((fbank_us, predict_us))
+    Ok(MultiMaskTiming {
+        fbank: fbank_timing,
+        tail: tail_timing,
+        storage,
+    })
 }
