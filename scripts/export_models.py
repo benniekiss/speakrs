@@ -111,37 +111,66 @@ def export_segmentation(pipeline: Any, models_dir: str) -> None:
 
 
 def export_embedding(pipeline: Any, models_dir: str) -> None:
-    """Export the exact WeSpeaker embedding path for batch-1 and batch-32 inference"""
+    """Export the exact WeSpeaker embedding and split inference graphs."""
     print("Exporting embedding model...")
 
     class FbankWrapper(nn.Module):
-        def __init__(self, model: Any) -> None:
+        def __init__(self) -> None:
             super().__init__()
             self.scale = float(1 << 15)
             self.preemph = 0.97
+            self.frame_length = 400
+            self.frame_shift = 160
+            self.n_fft = 512
 
-            window = torch.hamming_window(400, periodic=False, alpha=0.54, beta=0.46)
-            mel, _ = get_mel_banks(80, 512, 16000.0, 20.0, 0.0, 100.0, -500.0, 1.0)
+            window = torch.hamming_window(
+                self.frame_length, periodic=False, alpha=0.54, beta=0.46
+            )
+            mel, _ = get_mel_banks(
+                80, self.n_fft, 16000.0, 20.0, 0.0, 100.0, -500.0, 1.0
+            )
 
-            self.register_buffer("window", window)
+            self.register_buffer("stft_matrix", self._stft_matrix(window))
             self.register_buffer("mel", F.pad(mel, (0, 1), value=0.0).T.contiguous())
             self.register_buffer("eps", torch.tensor(torch.finfo(torch.float32).eps))
 
+        def _stft_matrix(self, window: torch.Tensor) -> torch.Tensor:
+            """Fold centering, pre-emphasis, windowing, and DFT into one matrix."""
+            dtype = torch.float64
+            frame_length = self.frame_length
+
+            centering = torch.eye(frame_length, dtype=dtype) - torch.full(
+                (frame_length, frame_length), 1.0 / frame_length, dtype=dtype
+            )
+            preemphasis = torch.eye(frame_length, dtype=dtype)
+            preemphasis[0, 0] = 1.0 - self.preemph
+            positions = torch.arange(1, frame_length)
+            preemphasis[positions, positions - 1] = -self.preemph
+
+            frequencies = torch.arange(self.n_fft // 2 + 1, dtype=dtype).unsqueeze(1)
+            samples = torch.arange(frame_length, dtype=dtype).unsqueeze(0)
+            angles = 2.0 * torch.pi * frequencies * samples / self.n_fft
+            dft = torch.cat((torch.cos(angles), -torch.sin(angles)), dim=0)
+
+            kernel = (
+                dft
+                @ torch.diag(window.to(dtype=dtype))
+                @ preemphasis
+                @ centering
+            )
+            return (kernel * self.scale).T.to(dtype=torch.float32).contiguous()
+
         def compute_fbank(self, waveforms: torch.Tensor) -> torch.Tensor:
-            window = cast(torch.Tensor, self.window)
+            stft_matrix = cast(torch.Tensor, self.stft_matrix)
             mel_filters = cast(torch.Tensor, self.mel)
             eps = cast(torch.Tensor, self.eps)
 
-            frames = waveforms[:, 0, :] * self.scale
-            frames = frames.unfold(1, 400, 160)
-            frames = frames - frames.mean(dim=2, keepdim=True)
-
-            previous = F.pad(frames, (1, 0), mode="replicate")[..., :-1]
-            frames = frames - self.preemph * previous
-            frames = frames * window.view(1, 1, -1)
-            frames = F.pad(frames, (0, 112))
-
-            spectrum = torch.fft.rfft(frames, dim=2).abs().pow(2.0)
+            frames = waveforms[:, 0, :].unfold(
+                1, self.frame_length, self.frame_shift
+            )
+            spectral = torch.matmul(frames, stft_matrix)
+            real, imaginary = spectral.chunk(2, dim=2)
+            spectrum = real * real + imaginary * imaginary
             mel = torch.matmul(spectrum, mel_filters.to(dtype=spectrum.dtype))
             mel = torch.clamp_min(mel, eps.to(device=mel.device, dtype=mel.dtype)).log()
             return mel - mel.mean(dim=1, keepdim=True)
@@ -243,7 +272,7 @@ def export_embedding(pipeline: Any, models_dir: str) -> None:
 
     emb_model = pipeline._embedding.model_
     emb_model.eval()
-    fbank_wrapper = FbankWrapper(emb_model)
+    fbank_wrapper = FbankWrapper()
     fbank_wrapper.eval()
     tail_wrapper = EmbeddingTailWrapper(emb_model)
     tail_wrapper.eval()
@@ -253,6 +282,39 @@ def export_embedding(pipeline: Any, models_dir: str) -> None:
     dummy_waveform = torch.randn(1, 1, 160000)
     dummy_weights = torch.ones(1, 589)
     dummy_fbank = fbank_wrapper(dummy_waveform)
+
+    # Validate the fixed-matrix graph against the original FFT formulation. The
+    # FFT is used only here as an export-time oracle; it is not part of any ONNX graph.
+    with torch.no_grad():
+        reference_window = torch.hamming_window(
+            400, periodic=False, alpha=0.54, beta=0.46
+        )
+        reference_frames = dummy_waveform[:, 0, :] * float(1 << 15)
+        reference_frames = reference_frames.unfold(1, 400, 160)
+        reference_frames = reference_frames - reference_frames.mean(dim=2, keepdim=True)
+        previous = F.pad(reference_frames, (1, 0), mode="replicate")[..., :-1]
+        reference_frames = reference_frames - 0.97 * previous
+        reference_frames = reference_frames * reference_window.view(1, 1, -1)
+        reference_frames = F.pad(reference_frames, (0, 112))
+        reference_spectrum = torch.fft.rfft(reference_frames, dim=2).abs().pow(2.0)
+        reference_mel = torch.matmul(
+            reference_spectrum, cast(torch.Tensor, fbank_wrapper.mel)
+        )
+        reference_mel = torch.clamp_min(
+            reference_mel, torch.finfo(torch.float32).eps
+        ).log()
+        reference_fbank = reference_mel - reference_mel.mean(dim=1, keepdim=True)
+        fbank_abs_diff = (dummy_fbank - reference_fbank).abs()
+        fbank_max_diff = fbank_abs_diff.max().item()
+        fbank_mean_diff = fbank_abs_diff.mean().item()
+        assert fbank_max_diff < 2e-3, (
+            "fixed-matrix fbank parity check failed: "
+            f"max diff = {fbank_max_diff}, mean diff = {fbank_mean_diff}"
+        )
+        print(
+            "  fixed-matrix fbank parity check passed "
+            f"(max diff = {fbank_max_diff:.2e}, mean diff = {fbank_mean_diff:.2e})"
+        )
 
     # verify multi-mask parity with existing tail wrapper
     with torch.no_grad():

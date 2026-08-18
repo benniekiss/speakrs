@@ -132,7 +132,7 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
         }
         ExecutionMode::Cuda | ExecutionMode::CudaFast | ExecutionMode::MiGraphX => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
-            // split models for multi-mask embedding (CPU fbank + GPU multi-mask)
+            // split models for provider-dispatched fbank + multi-mask embedding
             files.push("wespeaker-fbank.onnx".to_string());
             files.push("wespeaker-fbank-b32.onnx".to_string());
             files.push("wespeaker-multimask-tail.onnx".to_string());

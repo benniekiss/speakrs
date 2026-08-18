@@ -73,7 +73,7 @@ impl LoadedSessions {
                 .then_some(split_fbank_batched_path)
                 .filter(|path| path.exists())
                 .map(|path: std::path::PathBuf| {
-                    EmbeddingModel::build_fbank_session(path.as_path(), ExecutionMode::Cpu)
+                    EmbeddingModel::build_fbank_session(path.as_path(), mode)
                 })
                 .transpose()?
         );

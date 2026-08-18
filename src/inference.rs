@@ -283,10 +283,13 @@ pub(crate) fn with_execution_mode_and_coreml_units(
         ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => {
             #[cfg(feature = "coreml")]
             {
+                let profile_compute_plan =
+                    std::env::var_os("SPEAKRS_COREML_PROFILE_COMPUTE_PLAN").is_some();
                 Ok(builder.with_execution_providers([ep::CoreML::default()
                     .with_model_format(ep::coreml::ModelFormat::MLProgram)
                     .with_static_input_shapes(true)
                     .with_compute_units(_coreml_compute_units.to_ort())
+                    .with_profile_compute_plan(profile_compute_plan)
                     .build()
                     .error_on_failure()])?)
             }
