@@ -31,10 +31,7 @@ pub(super) struct LoadedSessions {
 }
 
 impl LoadedSessions {
-    pub(super) fn load(
-        model_path: &Path,
-        mode: ExecutionMode,
-    ) -> Result<Self, ModelLoadError> {
+    pub(super) fn load(model_path: &Path, mode: ExecutionMode) -> Result<Self, ModelLoadError> {
         let split_fbank_path = split_fbank_model_path(model_path);
         let split_fbank_batched_path = split_fbank_batched_model_path(model_path);
         let split_tail_path = split_tail_model_path(model_path, 1);
@@ -75,10 +72,7 @@ impl LoadedSessions {
         let (split_tail_session, split_tail_elapsed) = timed!(
             use_split_backend
                 .then(|| {
-                    EmbeddingModel::build_session_with_coreml_units(
-                        &split_tail_path,
-                        mode,
-                    )
+                    EmbeddingModel::build_session_with_graph(&split_tail_path, mode, false)
                 })
                 .transpose()?
         );
@@ -87,10 +81,7 @@ impl LoadedSessions {
                 .then_some(split_tail_batched_path)
                 .filter(|path| path.exists())
                 .map(|path: std::path::PathBuf| {
-                    EmbeddingModel::build_session_with_coreml_units(
-                        path.as_path(),
-                        mode,
-                    )
+                    EmbeddingModel::build_session_with_graph(path.as_path(), mode, false)
                 })
                 .transpose()?
         );
@@ -99,33 +90,20 @@ impl LoadedSessions {
                 .then_some(split_primary_tail_batched_path)
                 .filter(|path| path.exists())
                 .map(|path: std::path::PathBuf| {
-                    EmbeddingModel::build_session_with_coreml_units(
-                        path.as_path(),
-                        mode,
-                    )
+                    EmbeddingModel::build_session_with_graph(path.as_path(), mode, false)
                 })
                 .transpose()?
         );
         let (multi_mask_session, multi_mask_elapsed) = timed!(
             multi_mask_model_path(model_path, 1)
                 .filter(|path| path.exists())
-                .map(|path| {
-                    EmbeddingModel::build_session_with_coreml_units(
-                        &path,
-                        mode,
-                    )
-                })
+                .map(|path| { EmbeddingModel::build_session_with_graph(&path, mode, false) })
                 .transpose()?
         );
         let (multi_mask_batched_session, multi_mask_batched_elapsed) = timed!(
             multi_mask_model_path(model_path, MULTI_MASK_BATCH_SIZE)
                 .filter(|path| path.exists())
-                .map(|path| {
-                    EmbeddingModel::build_session_with_coreml_units(
-                        &path,
-                        mode,
-                    )
-                })
+                .map(|path| { EmbeddingModel::build_session_with_graph(&path, mode, false) })
                 .transpose()?
         );
         {

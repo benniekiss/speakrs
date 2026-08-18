@@ -11,13 +11,6 @@ impl EmbeddingModel {
         model_path: &Path,
         mode: ExecutionMode,
     ) -> Result<Session, ort::Error> {
-        Self::build_session_with_coreml_units(model_path, mode)
-    }
-
-    pub(super) fn build_session_with_coreml_units(
-        model_path: &Path,
-        mode: ExecutionMode,
-    ) -> Result<Session, ort::Error> {
         Self::build_session_with_graph(model_path, mode, false)
     }
 
