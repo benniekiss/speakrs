@@ -4,11 +4,10 @@ version = "0.5.0"
 edition = "2024"
 rust-version = "1.88"
 description = "Fast Rust speaker diarization with pyannote-level accuracy and ONNX Runtime acceleration"
-license = "Apache-2.0"
-repository = "https://github.com/avencera/speakrs"
 documentation = "https://docs.rs/speakrs"
 readme = "README.md"
-authors = ["Praveen Perera"]
+repository = "https://github.com/avencera/speakrs"
+license = "Apache-2.0"
 keywords = ["audio", "diarization", "onnx", "pyannote", "speaker"]
 categories = ["multimedia::audio", "science"]
 include = ["/Cargo.toml", "/LICENSE", "/README.md", "/examples/**", "/src/**"]
@@ -49,15 +48,15 @@ approx = "0.5.1"
 serde_json = "1"
 tracing-subscriber = { version = "0.3.22", features = ["env-filter"] }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-accelerate-src = { version = "0.3.2", optional = true }
-ndarray-linalg-default = { package = "ndarray-linalg", version = "0.18.1", optional = true }
-
 [target.'cfg(all(not(target_os = "macos"), not(target_arch = "x86_64")))'.dependencies]
 ndarray-linalg-default = { package = "ndarray-linalg", version = "0.18.1", features = ["openblas-static"], optional = true }
 
 [target.'cfg(all(not(target_os = "macos"), target_arch = "x86_64"))'.dependencies]
 ndarray-linalg-default = { package = "ndarray-linalg", version = "0.18.1", features = ["intel-mkl-static"], optional = true }
+
+[target.'cfg(target_os = "macos")'.dependencies]
+accelerate-src = { version = "0.3.2", optional = true }
+ndarray-linalg-default = { package = "ndarray-linalg", version = "0.18.1", optional = true }
 
 [features]
 default = ["default-linalg", "online"]
