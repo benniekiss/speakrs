@@ -131,7 +131,7 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
         ExecutionMode::Cpu => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
         }
-        ExecutionMode::Cuda | ExecutionMode::MiGraphX => {
+        ExecutionMode::Cuda | ExecutionMode::MiGraphX | ExecutionMode::CoreMl => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
             // split models for provider-dispatched fbank + multi-mask embedding
             files.push("wespeaker-fbank.onnx".to_string());
@@ -140,15 +140,6 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
             files.push("wespeaker-multimask-tail-b32.onnx".to_string());
             // batched embedding model
             files.push("wespeaker-voxceleb-resnet34-b64.onnx".to_string());
-        }
-        ExecutionMode::CoreMl => {
-            files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
-            // split ONNX models for embedding
-            files.push("wespeaker-fbank.onnx".to_string());
-            files.push("wespeaker-fbank-b32.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34-tail.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34-tail-b3.onnx".to_string());
-            files.push("wespeaker-voxceleb-resnet34-tail-b32.onnx".to_string());
         }
     }
 

@@ -128,23 +128,26 @@ pub(super) fn der_build_features(impls: &[String]) -> Vec<String> {
 
     let mut features = Vec::new();
 
-    #[cfg(target_os = "macos")]
-    let needs_coreml = active_impls
+    if active_impls
         .iter()
-        .any(|kind| matches!(kind, ImplType::Speakrs(mode) if mode.starts_with("coreml")));
-    #[cfg(not(target_os = "macos"))]
-    let needs_coreml = false;
-
-    let needs_cuda = active_impls
-        .iter()
-        .any(|kind| matches!(kind, ImplType::Speakrs("cuda" | "cuda-fast")));
-
-    if needs_coreml {
+        .any(|kind| matches!(kind, ImplType::Speakrs("coreml")))
+    {
         features.push("coreml".to_string());
-    }
-    if needs_cuda {
+    };
+
+    if active_impls
+        .iter()
+        .any(|kind| matches!(kind, ImplType::Speakrs("cuda")))
+    {
         features.push("cuda".to_string());
-    }
+    };
+
+    if active_impls
+        .iter()
+        .any(|kind| matches!(kind, ImplType::Speakrs("migraphx")))
+    {
+        features.push("migraphx".to_string());
+    };
 
     features
 }
