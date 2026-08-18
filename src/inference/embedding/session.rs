@@ -2,7 +2,7 @@ use std::path::Path;
 
 use ort::session::Session;
 
-use crate::inference::{with_execution_mode, with_execution_mode_and_coreml_units};
+use crate::inference::with_execution_mode;
 
 use super::{EmbeddingModel, ExecutionMode};
 
@@ -34,7 +34,7 @@ impl EmbeddingModel {
         let mut builder = if cuda_graph && matches!(mode, ExecutionMode::Cuda) {
             Self::with_cuda_graph_mode(builder)?
         } else {
-            with_execution_mode_and_coreml_units(builder, mode)?
+            with_execution_mode(builder, mode)?
         };
         builder.commit_from_file(model_path)
     }

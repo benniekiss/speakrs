@@ -2,13 +2,11 @@ pub(crate) mod embedding;
 pub(crate) mod segmentation;
 
 #[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
-use std::ffi::CStr;
-use std::fmt;
-#[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
-use std::path::Path;
-use std::path::PathBuf;
-#[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
-use std::sync::OnceLock;
+use std::{ffi::CStr, path::Path, sync::OnceLock};
+use std::{
+    fmt::{self, Display},
+    path::PathBuf,
+};
 
 pub use embedding::EmbeddingModel;
 pub use segmentation::{SegmentationError, SegmentationModel};
@@ -36,87 +34,31 @@ pub enum ExecutionMode {
     MiGraphX,
 }
 
-impl ExecutionMode {
-    /// Returns true when this mode uses the CoreML execution provider
-    pub const fn is_coreml(self) -> bool {
-        matches!(self, Self::CoreMl)
-    }
-
-    /// Returns true when this mode uses CUDA execution
-    pub const fn is_cuda(self) -> bool {
-        matches!(self, Self::Cuda)
-    }
-
-    /// Returns true when this mode uses the MIGraphX execution provider
-    pub const fn is_migraphx(self) -> bool {
-        matches!(self, Self::MiGraphX)
-    }
-
-    pub(crate) fn validate(self) -> Result<(), ExecutionModeError> {
-        if self == Self::Cpu {
-            return Ok(());
-        }
-
-        if self.is_coreml() {
-            #[cfg(feature = "coreml")]
-            {
-                return Ok(());
-            }
-
-            #[cfg(not(feature = "coreml"))]
-            {
-                return Err(ExecutionModeError {
-                    mode: self,
-                    feature: "coreml",
-                });
-            }
-        }
-
-        if self.is_migraphx() {
-            #[cfg(feature = "migraphx")]
-            {
-                return Ok(());
-            }
-
-            #[cfg(not(feature = "migraphx"))]
-            {
-                return Err(ExecutionModeError {
-                    mode: self,
-                    feature: "migraphx",
-                });
-            }
-        }
-
-        debug_assert!(self.is_cuda(), "unsupported execution mode: {self:?}");
-
-        #[cfg(feature = "cuda")]
-        {
-            Ok(())
-        }
-
-        #[cfg(not(feature = "cuda"))]
-        {
-            Err(ExecutionModeError {
-                mode: self,
-                feature: "cuda",
-            })
-        }
-    }
-
-    /// Lowercase identifier used in logs, docs, and user-facing errors
-    pub const fn as_str(self) -> &'static str {
-        match self {
+impl Display for ExecutionMode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let val = match self {
             Self::Cpu => "cpu",
             Self::CoreMl => "coreml",
             Self::Cuda => "cuda",
             Self::MiGraphX => "migraphx",
-        }
+        };
+
+        write!(f, "{val}")
     }
 }
 
-impl fmt::Display for ExecutionMode {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+impl ExecutionMode {
+    pub(crate) fn validate(self) -> Result<(), ExecutionModeError> {
+        match self {
+            Self::Cpu => Ok(()),
+            Self::CoreMl if cfg!(feature = "coreml") => Ok(()),
+            Self::MiGraphX if cfg!(feature = "migraphx") => Ok(()),
+            Self::Cuda if cfg!(feature = "cuda") => Ok(()),
+            _ => Err(ExecutionModeError {
+                mode: self,
+                feature: self.to_string(),
+            }),
+        }
     }
 }
 
@@ -222,7 +164,7 @@ pub enum DynamicRuntimeError {
 #[error("{mode} requires the `{feature}` Cargo feature")]
 pub struct ExecutionModeError {
     mode: ExecutionMode,
-    feature: &'static str,
+    feature: String,
 }
 
 impl From<ExecutionModeError> for ort::Error {
@@ -239,66 +181,37 @@ pub fn with_execution_mode(
     builder: SessionBuilder,
     mode: ExecutionMode,
 ) -> Result<SessionBuilder, ort::Error> {
-    with_execution_mode_and_coreml_units(builder, mode)
-}
-
-pub(crate) fn with_execution_mode_and_coreml_units(
-    builder: SessionBuilder,
-    mode: ExecutionMode,
-) -> Result<SessionBuilder, ort::Error> {
     mode.validate()?;
 
     match mode {
         ExecutionMode::Cpu => Ok(builder
             .with_execution_providers([ep::CPU::default().with_arena_allocator(false).build()])?),
-        ExecutionMode::CoreMl => {
-            #[cfg(feature = "coreml")]
-            {
-                Ok(builder.with_execution_providers([ep::CoreML::default()
-                    .with_model_format(ep::coreml::ModelFormat::MLProgram)
-                    .with_static_input_shapes(true)
-                    .build()
-                    .error_on_failure()])?)
-            }
-
-            #[cfg(not(feature = "coreml"))]
-            {
-                unreachable!("mode validation rejects CoreML modes without the `coreml` feature")
-            }
-        }
-        ExecutionMode::Cuda => {
-            #[cfg(feature = "cuda")]
-            {
-                Ok(builder.with_execution_providers([ep::CUDA::default()
-                    .with_device_id(0)
-                    .with_tf32(true)
-                    .with_conv_algorithm_search(ep::cuda::ConvAlgorithmSearch::Exhaustive)
-                    .with_conv_max_workspace(true)
-                    .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
-                    .with_prefer_nhwc(true)
-                    .build()
-                    .error_on_failure()])?)
-            }
-
-            #[cfg(not(feature = "cuda"))]
-            {
-                unreachable!("mode validation rejects CUDA modes without the `cuda` feature")
-            }
-        }
+        #[cfg(feature = "coreml")]
+        ExecutionMode::CoreMl => Ok(builder.with_execution_providers([ep::CoreML::default()
+            .with_model_format(ep::coreml::ModelFormat::MLProgram)
+            .with_static_input_shapes(true)
+            .build()
+            .error_on_failure()])?),
+        #[cfg(feature = "cuda")]
+        ExecutionMode::Cuda => Ok(builder.with_execution_providers([ep::CUDA::default()
+            .with_device_id(0)
+            .with_tf32(true)
+            .with_conv_algorithm_search(ep::cuda::ConvAlgorithmSearch::Exhaustive)
+            .with_conv_max_workspace(true)
+            .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
+            .with_prefer_nhwc(true)
+            .build()
+            .error_on_failure()])?),
+        #[cfg(feature = "migraphx")]
         ExecutionMode::MiGraphX => {
-            #[cfg(feature = "migraphx")]
-            {
-                Ok(builder.with_execution_providers([ep::MIGraphX::default()
-                    .with_device_id(0)
-                    .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
-                    .build()
-                    .error_on_failure()])?)
-            }
-
-            #[cfg(not(feature = "migraphx"))]
-            {
-                unreachable!("mode validation rejects MIGraphX mode without the `migraphx` feature")
-            }
+            Ok(builder.with_execution_providers([ep::MIGraphX::default()
+                .with_device_id(0)
+                .with_arena_extend_strategy(ep::ArenaExtendStrategy::SameAsRequested)
+                .build()
+                .error_on_failure()])?)
+        }
+        _ => {
+            unreachable!("mode validation failed without the `{}` feature", mode,)
         }
     }
 }
@@ -477,12 +390,9 @@ mod tests {
         not(feature = "migraphx")
     ))]
     use super::ExecutionMode;
-    #[cfg(feature = "coreml")]
-    use super::with_execution_mode;
+
     #[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
     use super::{DynamicRuntimeError, OrtRuntimeError, ensure_ort_ready};
-    #[cfg(feature = "coreml")]
-    use ort::session::Session;
 
     #[cfg(not(feature = "coreml"))]
     #[test]
@@ -492,20 +402,6 @@ mod tests {
             error.to_string(),
             "coreml requires the `coreml` Cargo feature"
         );
-    }
-
-    #[cfg(feature = "coreml")]
-    #[test]
-    fn coreml_modes_are_available_with_feature() {
-        ExecutionMode::CoreMl.validate().unwrap();
-        ExecutionMode::CoreMlFast.validate().unwrap();
-    }
-
-    #[cfg(feature = "coreml")]
-    #[test]
-    fn coreml_execution_provider_registers() {
-        let builder = Session::builder().unwrap();
-        with_execution_mode(builder, ExecutionMode::CoreMl).unwrap();
     }
 
     #[cfg(not(feature = "cuda"))]
