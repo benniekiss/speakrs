@@ -58,6 +58,18 @@ impl Display for ExecutionMode {
 }
 
 impl ExecutionMode {
+    pub(crate) fn uses_concurrent_pipeline(self) -> bool {
+        matches!(self, Self::CoreMl | Self::Cuda | Self::MiGraphX)
+    }
+
+    pub(crate) fn embedding_intra_threads(self) -> usize {
+        if self.uses_concurrent_pipeline() {
+            1
+        } else {
+            available_threads()
+        }
+    }
+
     pub(crate) fn validate(self) -> Result<(), ExecutionModeError> {
         match self {
             Self::Cpu => Ok(()),
@@ -71,6 +83,12 @@ impl ExecutionMode {
             }),
         }
     }
+}
+
+pub(crate) fn available_threads() -> usize {
+    std::thread::available_parallelism()
+        .map(usize::from)
+        .unwrap_or(1)
 }
 
 /// Errors that can occur while loading a model or initializing ONNX Runtime
@@ -409,16 +427,21 @@ fn dedup_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(any(
-        not(feature = "coreml"),
-        not(feature = "cuda"),
-        not(feature = "migraphx"),
-        not(feature = "webgpu")
-    ))]
     use super::ExecutionMode;
 
     #[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
     use super::{DynamicRuntimeError, OrtRuntimeError, ensure_ort_ready};
+
+    #[test]
+    fn embedding_threads_follow_pipeline_topology() {
+        let available = super::available_threads();
+
+        assert_eq!(ExecutionMode::Cpu.embedding_intra_threads(), available);
+        assert_eq!(ExecutionMode::WebGpu.embedding_intra_threads(), available);
+        assert_eq!(ExecutionMode::CoreMl.embedding_intra_threads(), 1);
+        assert_eq!(ExecutionMode::Cuda.embedding_intra_threads(), 1);
+        assert_eq!(ExecutionMode::MiGraphX.embedding_intra_threads(), 1);
+    }
 
     #[cfg(not(feature = "coreml"))]
     #[test]

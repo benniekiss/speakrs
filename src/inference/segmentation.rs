@@ -3,7 +3,9 @@ use std::path::{Path, PathBuf};
 use ndarray::Array2;
 use ort::session::Session;
 
-use crate::inference::{ExecutionMode, ModelLoadError, ensure_ort_ready, with_execution_mode};
+use crate::inference::{
+    ExecutionMode, ModelLoadError, available_threads, ensure_ort_ready, with_execution_mode,
+};
 mod run;
 mod tensor;
 
@@ -121,17 +123,10 @@ impl SegmentationModel {
     fn build_session(model_path: &Path, mode: ExecutionMode) -> Result<Session, ort::Error> {
         let builder = Session::builder()?
             .with_independent_thread_pool()?
-            .with_intra_threads(Self::available_threads())?
-            .with_inter_threads(1)?
+            .with_intra_threads(available_threads())?
             .with_memory_pattern(true)?;
         let mut builder = with_execution_mode(builder, mode)?;
         builder.commit_from_file(model_path)
-    }
-
-    fn available_threads() -> usize {
-        std::thread::available_parallelism()
-            .map(usize::from)
-            .unwrap_or(1)
     }
 
     /// Audio sample rate in Hz (16000)

@@ -290,12 +290,10 @@ impl<'a> PipelineRunner<'a> {
     }
 
     fn inference_path(&self) -> InferencePath {
-        match self.seg_model.mode() {
-            ExecutionMode::CoreMl => InferencePath::Concurrent,
-            ExecutionMode::Cuda => InferencePath::Concurrent,
-            ExecutionMode::MiGraphX => InferencePath::Concurrent,
-            ExecutionMode::WebGpu => InferencePath::Sequential,
-            ExecutionMode::Cpu => InferencePath::Sequential,
+        if self.seg_model.mode().uses_concurrent_pipeline() {
+            InferencePath::Concurrent
+        } else {
+            InferencePath::Sequential
         }
     }
 
