@@ -19,7 +19,6 @@ chrono = "0.4.45"
 clap = { version = "4", features = ["derive", "env"] }
 color-eyre = "0.6"
 hound = "3.5.1"
-mimalloc = "0.1.52"
 ndarray = "0.17.2"
 ort = { version = "2.0.0-rc.13", features = ["ndarray"] }
 serde = { version = "1.0.229", features = ["derive"] }
@@ -28,9 +27,7 @@ speakrs = { path = "..", default-features = false, features = ["default-linalg",
 tempfile = "3"
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["env-filter"] }
-ureq = { version = "3.4", features = ["json"] }
 wait-timeout = "0.2"
-xshell = "0.2"
 
 [features]
 _metrics = ["speakrs/_metrics"]
