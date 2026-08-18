@@ -118,6 +118,7 @@ const PLDA_FILES: &[&str] = &[
 #[cfg(feature = "online")]
 const ONNX_FILES: &[&str] = &[
     "segmentation-3.0.onnx",
+    "segmentation-3.0-b64.onnx",
     "wespeaker-voxceleb-resnet34.onnx",
     "wespeaker-voxceleb-resnet34.onnx.data",
 ];
@@ -137,14 +138,11 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
             files.push("wespeaker-fbank-b32.onnx".to_string());
             files.push("wespeaker-multimask-tail.onnx".to_string());
             files.push("wespeaker-multimask-tail-b32.onnx".to_string());
-            // batched seg/emb models
-            files.push("segmentation-3.0-b32.onnx".to_string());
+            // batched embedding model
             files.push("wespeaker-voxceleb-resnet34-b64.onnx".to_string());
         }
         ExecutionMode::CoreMl | ExecutionMode::CoreMlFast => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
-            // b32 batched ONNX for segmentation
-            files.push("segmentation-3.0-b32.onnx".to_string());
             // split ONNX models for embedding
             files.push("wespeaker-fbank.onnx".to_string());
             files.push("wespeaker-fbank-b32.onnx".to_string());
@@ -165,7 +163,7 @@ mod tests {
     fn coreml_required_files_are_onnx_assets() {
         let files = required_files(ExecutionMode::CoreMl);
         assert!(files.contains(&"segmentation-3.0.onnx".to_string()));
-        assert!(files.contains(&"segmentation-3.0-b32.onnx".to_string()));
+        assert!(files.contains(&"segmentation-3.0-b64.onnx".to_string()));
         assert!(files.contains(&"wespeaker-fbank.onnx".to_string()));
         assert!(files.contains(&"wespeaker-voxceleb-resnet34-tail.onnx".to_string()));
         assert!(files.iter().all(|file| !file.contains(".mlmodelc")));
@@ -180,9 +178,26 @@ mod tests {
     }
 
     #[test]
+    fn every_execution_mode_downloads_b64_segmentation() {
+        for mode in [
+            ExecutionMode::Cpu,
+            ExecutionMode::CoreMl,
+            ExecutionMode::CoreMlFast,
+            ExecutionMode::Cuda,
+            ExecutionMode::CudaFast,
+            ExecutionMode::MiGraphX,
+        ] {
+            assert!(
+                required_files(mode).contains(&"segmentation-3.0-b64.onnx".to_string()),
+                "missing b64 segmentation model for {mode}"
+            );
+        }
+    }
+
+    #[test]
     fn migraphx_required_files_include_accelerated_onnx_assets() {
         let files = required_files(ExecutionMode::MiGraphX);
-        assert!(files.contains(&"segmentation-3.0-b32.onnx".to_string()));
+        assert!(files.contains(&"segmentation-3.0-b64.onnx".to_string()));
         assert!(files.contains(&"wespeaker-fbank.onnx".to_string()));
         assert!(files.contains(&"wespeaker-fbank-b32.onnx".to_string()));
         assert!(files.contains(&"wespeaker-multimask-tail.onnx".to_string()));

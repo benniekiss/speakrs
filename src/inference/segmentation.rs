@@ -41,8 +41,8 @@ pub enum SegmentationError {
     },
 }
 
-// seg models exported with EnumeratedShapes for batch 1-32 and b64
-const PRIMARY_BATCH_SIZE: usize = 32;
+// Static batched segmentation model used by every ORT execution provider.
+const PRIMARY_BATCH_SIZE: usize = 64;
 
 /// Sliding-window segmentation model (pyannote segmentation-3.0)
 pub struct SegmentationModel {
@@ -121,7 +121,7 @@ impl SegmentationModel {
     fn build_session(model_path: &Path, mode: ExecutionMode) -> Result<Session, ort::Error> {
         let builder = Session::builder()?
             .with_independent_thread_pool()?
-            .with_intra_threads(Self::available_threads().min(6))?
+            .with_intra_threads(Self::available_threads())?
             .with_inter_threads(1)?
             .with_memory_pattern(true)?;
         let mut builder = with_execution_mode(builder, mode)?;

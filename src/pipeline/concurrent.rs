@@ -53,7 +53,7 @@ pub(super) struct ConcurrentEmbeddingRunner<'a> {
 }
 
 impl<'a> ConcurrentEmbeddingRunner<'a> {
-    fn total_windows(&self) -> usize {
+    pub(super) fn total_windows(&self) -> usize {
         streaming_total_windows(self.audio.len(), self.window_samples, self.step_samples)
     }
 

@@ -400,7 +400,10 @@ impl<'a> PipelineRunner<'a> {
             EmbeddingPath::Masked => self.emb_model.primary_batch_size(),
         };
         let min_num_samples = self.emb_model.min_num_samples();
-        let (tx, rx) = crossbeam_channel::bounded::<Array2<f32>>(64);
+        // Hold at most the finite output stream. This lets segmentation finish at full
+        // batched throughput without waiting behind the embedding consumer.
+        let channel_capacity = concurrent_embedding_runner.total_windows().max(1);
+        let (tx, rx) = crossbeam_channel::bounded::<Array2<f32>>(channel_capacity);
 
         let inference_start = std::time::Instant::now();
         let (segmentation_result, embedding_result) = std::thread::scope(|scope| {
