@@ -32,6 +32,9 @@ pub enum ExecutionMode {
     /// AMD GPU via ONNX Runtime's MIGraphX execution provider
     #[cfg_attr(docsrs, doc(cfg(feature = "migraphx")))]
     MiGraphX,
+    /// Cross-platform GPU acceleration via ONNX Runtime's WebGPU provider
+    #[cfg_attr(docsrs, doc(cfg(feature = "webgpu")))]
+    WebGpu,
 }
 
 impl Display for ExecutionMode {
@@ -41,6 +44,7 @@ impl Display for ExecutionMode {
             Self::CoreMl => "coreml",
             Self::Cuda => "cuda",
             Self::MiGraphX => "migraphx",
+            Self::WebGpu => "webgpu",
         };
 
         write!(f, "{val}")
@@ -54,6 +58,7 @@ impl ExecutionMode {
             Self::CoreMl if cfg!(feature = "coreml") => Ok(()),
             Self::MiGraphX if cfg!(feature = "migraphx") => Ok(()),
             Self::Cuda if cfg!(feature = "cuda") => Ok(()),
+            Self::WebGpu if cfg!(feature = "webgpu") => Ok(()),
             _ => Err(ExecutionModeError {
                 mode: self,
                 feature: self.to_string(),
@@ -210,8 +215,13 @@ pub fn with_execution_mode(
                 .build()
                 .error_on_failure()])?)
         }
+        #[cfg(feature = "webgpu")]
+        ExecutionMode::WebGpu => Ok(builder.with_execution_providers([ep::WebGPU::default()
+            .with_device_id(0)
+            .build()
+            .error_on_failure()])?),
         _ => {
-            unreachable!("mode validation failed without the `{}` feature", mode,)
+            unreachable!("mode validation failed without the `{mode}` feature")
         }
     }
 }
@@ -387,7 +397,8 @@ mod tests {
     #[cfg(any(
         not(feature = "coreml"),
         not(feature = "cuda"),
-        not(feature = "migraphx")
+        not(feature = "migraphx"),
+        not(feature = "webgpu")
     ))]
     use super::ExecutionMode;
 
@@ -418,6 +429,16 @@ mod tests {
         assert_eq!(
             error.to_string(),
             "migraphx requires the `migraphx` Cargo feature"
+        );
+    }
+
+    #[cfg(not(feature = "webgpu"))]
+    #[test]
+    fn webgpu_mode_requires_feature() {
+        let error = ExecutionMode::WebGpu.validate().unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            "webgpu requires the `webgpu` Cargo feature"
         );
     }
 

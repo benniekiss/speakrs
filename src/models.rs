@@ -131,7 +131,10 @@ fn required_files(mode: ExecutionMode) -> Vec<String> {
         ExecutionMode::Cpu => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
         }
-        ExecutionMode::Cuda | ExecutionMode::MiGraphX | ExecutionMode::CoreMl => {
+        ExecutionMode::Cuda
+        | ExecutionMode::MiGraphX
+        | ExecutionMode::CoreMl
+        | ExecutionMode::WebGpu => {
             files.extend(ONNX_FILES.iter().map(|s| s.to_string()));
             // split models for provider-dispatched fbank + multi-mask embedding
             files.push("wespeaker-fbank.onnx".to_string());
@@ -157,6 +160,7 @@ mod tests {
             ExecutionMode::CoreMl,
             ExecutionMode::Cuda,
             ExecutionMode::MiGraphX,
+            ExecutionMode::WebGpu,
         ] {
             assert!(
                 required_files(mode).contains(&"segmentation-3.0-b64.onnx".to_string()),
@@ -168,6 +172,17 @@ mod tests {
     #[test]
     fn migraphx_required_files_include_accelerated_onnx_assets() {
         let files = required_files(ExecutionMode::MiGraphX);
+        assert!(files.contains(&"segmentation-3.0-b64.onnx".to_string()));
+        assert!(files.contains(&"wespeaker-fbank.onnx".to_string()));
+        assert!(files.contains(&"wespeaker-fbank-b32.onnx".to_string()));
+        assert!(files.contains(&"wespeaker-multimask-tail.onnx".to_string()));
+        assert!(files.contains(&"wespeaker-multimask-tail-b32.onnx".to_string()));
+        assert!(files.contains(&"wespeaker-voxceleb-resnet34-b64.onnx".to_string()));
+    }
+
+    #[test]
+    fn webgpu_required_files_include_accelerated_onnx_assets() {
+        let files = required_files(ExecutionMode::WebGpu);
         assert!(files.contains(&"segmentation-3.0-b64.onnx".to_string()));
         assert!(files.contains(&"wespeaker-fbank.onnx".to_string()));
         assert!(files.contains(&"wespeaker-fbank-b32.onnx".to_string()));

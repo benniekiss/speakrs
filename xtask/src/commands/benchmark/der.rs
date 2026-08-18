@@ -45,6 +45,12 @@ pub(super) const IMPL_REGISTRY: &[(&str, &str, &str, ImplType)] = &[
     ),
     ("cuda", "sg", "speakrs CUDA", ImplType::Speakrs("cuda")),
     (
+        "webgpu",
+        "swg",
+        "speakrs WebGPU",
+        ImplType::Speakrs("webgpu"),
+    ),
+    (
         "migraphx",
         "sm",
         "speakrs migraphx",

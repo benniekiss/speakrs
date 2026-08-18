@@ -13,7 +13,7 @@ categories = ["multimedia::audio", "science"]
 include = ["/Cargo.toml", "/LICENSE", "/README.md", "/examples/**", "/src/**"]
 
 [package.metadata.docs.rs]
-features = ["cuda", "migraphx", "load-dynamic", "_metrics"]
+features = ["cuda", "migraphx", "webgpu", "load-dynamic", "_metrics"]
 
 [workspace]
 members = ["xtask"]
@@ -66,7 +66,7 @@ default-linalg = ["dep:accelerate-src", "dep:ndarray-linalg-default"]
 load-dynamic = ["dep:libloading", "ort/load-dynamic"]
 migraphx = ["ort/migraphx"]
 online = ["dep:hf-hub", "hf-hub/native-tls", "hf-hub/ureq"]
-webgpu = ["ort/webgpu"]
+webgpu = ["ort/webgpu", "ort/copy-dylibs"]
 
 intel-mkl = ["dep:ndarray-linalg-mkl"]
 openblas-static = ["dep:ndarray-linalg-static"]

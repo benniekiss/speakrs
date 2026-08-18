@@ -149,5 +149,12 @@ pub(super) fn der_build_features(impls: &[String]) -> Vec<String> {
         features.push("migraphx".to_string());
     };
 
+    if active_impls
+        .iter()
+        .any(|kind| matches!(kind, ImplType::Speakrs("webgpu")))
+    {
+        features.push("webgpu".to_string());
+    };
+
     features
 }

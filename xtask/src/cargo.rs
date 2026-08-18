@@ -11,6 +11,7 @@ pub fn features_for_mode(mode: &str) -> Vec<String> {
         "coreml" => vec!["coreml".to_string()],
         "cuda" => vec!["cuda".to_string()],
         "migraphx" => vec!["migraphx".to_string()],
+        "webgpu" => vec!["webgpu".to_string()],
         _ => vec![],
     }
 }

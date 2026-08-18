@@ -29,7 +29,7 @@ jobs:
         with:
           command: check
           rust-version: "1.88.0"
-          arguments: --no-default-features --features online,default-linalg,cuda,migraphx,load-dynamic,_metrics
+          arguments: --no-default-features --features online,default-linalg,cuda,migraphx,webgpu,load-dynamic,_metrics
 
   msrv:
     name: MSRV Rust 1.88
@@ -57,13 +57,13 @@ jobs:
         include:
           - name: Linux x86_64
             os: ubuntu-24.04
-            features: cuda migraphx load-dynamic _metrics
+            features: cuda migraphx webgpu load-dynamic _metrics
           - name: Linux arm64
             os: ubuntu-24.04-arm
-            features: cuda migraphx load-dynamic _metrics
+            features: cuda migraphx webgpu load-dynamic _metrics
           - name: macOS arm64
             os: macos-15
-            features: coreml cuda migraphx load-dynamic _metrics
+            features: coreml cuda migraphx webgpu load-dynamic _metrics
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v6

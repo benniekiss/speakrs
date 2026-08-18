@@ -26,6 +26,9 @@ speakrs = { version = "0.5", features = ["coreml"] }
 # NVIDIA GPU
 speakrs = { version = "0.5", features = ["cuda"] }
 
+# Cross-platform GPU (WebGPU)
+speakrs = { version = "0.5", features = ["webgpu"] }
+
 # CPU only
 speakrs = "0.5"
 
@@ -111,6 +114,7 @@ let result = pipeline.run(&audio)?;
 | `cuda` | ONNX Runtime CUDA | 1s | NVIDIA GPU |
 | `cuda-fast` | ONNX Runtime CUDA | 2s | NVIDIA GPU for higher throughput |
 | `migraphx` | ONNX Runtime MIGraphX | 1s | AMD GPU |
+| `webgpu` | ONNX Runtime WebGPU | 1s | Cross-platform GPU acceleration |
 
 The `*-fast` modes move the segmentation window every 2 seconds instead of
 every 1 second. That gives the pipeline fewer windows to score, so it can be much faster, but speaker changes
@@ -211,6 +215,7 @@ Common features:
 - `coreml`: ONNX Runtime CoreML execution provider on macOS
 - `cuda`: NVIDIA CUDA backend via ONNX Runtime
 - `migraphx`: AMD GPU backend via ONNX Runtime MIGraphX
+- `webgpu`: cross-platform GPU backend via ONNX Runtime WebGPU
 - `load-dynamic`: load the ONNX Runtime library at startup instead of static linking
 
 BLAS backends matter if you disable default features:

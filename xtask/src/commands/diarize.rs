@@ -25,6 +25,7 @@ pub enum SpeakrsMode {
     Cpu,
     Coreml,
     Cuda,
+    Webgpu,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -40,6 +41,7 @@ impl SpeakrsMode {
             Self::Cpu => ExecutionMode::Cpu,
             Self::Coreml => ExecutionMode::CoreMl,
             Self::Cuda => ExecutionMode::Cuda,
+            Self::Webgpu => ExecutionMode::WebGpu,
         }
     }
 
@@ -47,6 +49,7 @@ impl SpeakrsMode {
         match self {
             Self::Coreml => COREML_SEGMENTATION_STEP_SECONDS,
             Self::Cuda => CUDA_SEGMENTATION_STEP_SECONDS,
+            Self::Webgpu => CUDA_SEGMENTATION_STEP_SECONDS,
             Self::Cpu => SEGMENTATION_STEP_SECONDS,
         }
     }
@@ -70,11 +73,12 @@ impl FromStr for DiarizeMode {
             "cpu" => Ok(Self::Speakrs(SpeakrsMode::Cpu)),
             "coreml" => Ok(Self::Speakrs(SpeakrsMode::Coreml)),
             "cuda" => Ok(Self::Speakrs(SpeakrsMode::Cuda)),
+            "webgpu" => Ok(Self::Speakrs(SpeakrsMode::Webgpu)),
             "pyannote-cpu" => Ok(Self::Pyannote(PyannoteDevice::Cpu)),
             "pyannote-mps" => Ok(Self::Pyannote(PyannoteDevice::Mps)),
             "pyannote-cuda" => Ok(Self::Pyannote(PyannoteDevice::Cuda)),
             _ => Err(format!(
-                "unknown mode '{s}', expected one of: cpu, coreml, coreml-fast, cuda, cuda-fast, pyannote-cpu, pyannote-mps, pyannote-cuda"
+                "unknown mode '{s}', expected one of: cpu, coreml, cuda, webgpu, pyannote-cpu, pyannote-mps, pyannote-cuda"
             )),
         }
     }
@@ -86,6 +90,7 @@ impl fmt::Display for DiarizeMode {
             Self::Speakrs(SpeakrsMode::Cpu) => write!(f, "cpu"),
             Self::Speakrs(SpeakrsMode::Coreml) => write!(f, "coreml"),
             Self::Speakrs(SpeakrsMode::Cuda) => write!(f, "cuda"),
+            Self::Speakrs(SpeakrsMode::Webgpu) => write!(f, "webgpu"),
             Self::Pyannote(PyannoteDevice::Cpu) => write!(f, "pyannote-cpu"),
             Self::Pyannote(PyannoteDevice::Mps) => write!(f, "pyannote-mps"),
             Self::Pyannote(PyannoteDevice::Cuda) => write!(f, "pyannote-cuda"),

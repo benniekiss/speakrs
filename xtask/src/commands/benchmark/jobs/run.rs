@@ -247,14 +247,8 @@ pub fn run_speakrs_gpu(
 
     use crate::wav;
 
-    let execution_mode = match mode {
-        "cuda-fast" => ExecutionMode::CudaFast,
-        _ => ExecutionMode::Cuda,
-    };
-    let step = match execution_mode {
-        ExecutionMode::CudaFast => FAST_SEGMENTATION_STEP_SECONDS,
-        _ => CUDA_SEGMENTATION_STEP_SECONDS,
-    };
+    let execution_mode = ExecutionMode::Cuda;
+    let step = CUDA_SEGMENTATION_STEP_SECONDS;
     let mut seg_model = SegmentationModel::with_mode(
         models_dir.join("segmentation-3.0.onnx"),
         step as f32,

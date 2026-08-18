@@ -164,35 +164,6 @@ fn der_coreml_fp32() {
 }
 
 #[test]
-#[cfg(all(feature = "coreml", feature = "_metrics"))]
-fn der_coreml_fast() {
-    let Some((results, elapsed)) =
-        voxconverse_der(ExecutionMode::CoreMlFast, FAST_SEGMENTATION_STEP_SECONDS)
-    else {
-        return;
-    };
-    let avg_der: f64 = results.iter().map(|(_, d)| d).sum::<f64>() / results.len() as f64;
-    eprintln!(
-        "CoreML Fast (FP32+2s) avg DER: {:.1}%, total: {:.1}s",
-        avg_der * 100.0,
-        elapsed.as_secs_f64()
-    );
-
-    assert!(
-        avg_der < 0.12,
-        "CoreML Fast avg DER {:.1}% exceeds 12%",
-        avg_der * 100.0
-    );
-    for (name, der) in &results {
-        assert!(
-            *der < 0.45,
-            "CoreML Fast {name}: DER {:.1}% exceeds 45%",
-            der * 100.0
-        );
-    }
-}
-
-#[test]
 fn pipeline_handles_short_audio_fixture() {
     let models_dir = fixture_path("models");
     let Some(mut seg_model) = load_model_or_skip(SegmentationModel::new(
