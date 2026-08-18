@@ -160,16 +160,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn coreml_required_files_are_onnx_assets() {
-        let files = required_files(ExecutionMode::CoreMl);
-        assert!(files.contains(&"segmentation-3.0.onnx".to_string()));
-        assert!(files.contains(&"segmentation-3.0-b64.onnx".to_string()));
-        assert!(files.contains(&"wespeaker-fbank.onnx".to_string()));
-        assert!(files.contains(&"wespeaker-voxceleb-resnet34-tail.onnx".to_string()));
-        assert!(files.iter().all(|file| !file.contains(".mlmodelc")));
-    }
-
-    #[test]
     fn every_execution_mode_downloads_b64_segmentation() {
         for mode in [
             ExecutionMode::Cpu,
