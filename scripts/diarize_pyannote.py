@@ -122,7 +122,7 @@ def _format_eta(seconds: float) -> str:
     if seconds < 60:
         return f"{seconds:.0f}s"
     mins = int(seconds // 60)
-    secs = int(round(seconds % 60))
+    secs = round(seconds % 60)
     return f"{mins}m {secs:02d}s"
 
 
@@ -136,7 +136,9 @@ def main() -> None:
             os.path.expanduser("~/.huggingface/token"),
         ]:
             if os.path.isfile(p):
-                token = open(p).read().strip()
+                with open(p) as fp:
+                    token = fp.read().strip()
+
                 if token:
                     break
 
@@ -184,7 +186,7 @@ def main() -> None:
             remaining = (total - i - 1) * avg
             eta = _format_eta(remaining)
             print(
-                f"  [{i + 1}/{total}] {file_id}: {elapsed:.1f}s (ETA {eta}) [{datetime.now():%H:%M:%S}]",
+                f"  [{i + 1}/{total}] {file_id}: {elapsed:.1f}s (ETA {eta}) [{datetime.now():%H:%M:%S}]",  # noqa: DTZ005
                 file=sys.stderr,
             )
 

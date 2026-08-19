@@ -7,7 +7,6 @@
 import sys
 from pathlib import Path
 
-import onnxruntime as ort
 from onnxruntime.quantization import QuantType, quantize_dynamic
 
 

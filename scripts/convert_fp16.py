@@ -5,6 +5,7 @@
 """Convert ONNX models to FP16 with FP32 I/O"""
 
 import sys
+
 import onnx
 from onnxconverter_common import float16
 

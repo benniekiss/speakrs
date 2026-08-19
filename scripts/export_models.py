@@ -24,8 +24,8 @@ from typing import Any, cast
 
 import numpy as np
 import torch
-import torch.nn as nn
 import torch.nn.functional as F
+from torch import nn
 from torchaudio.compliance.kaldi import get_mel_banks
 
 os.environ.setdefault("TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD", "1")
@@ -427,7 +427,6 @@ def export_embedding_model(
 ) -> None:
     dummy_waveform = torch.randn(batch_size, 1, 160000)
     dummy_weights = torch.ones(batch_size, 589)
-    dummy_fbank = fbank_wrapper(dummy_waveform)
 
     class ExactEmbeddingWrapper(nn.Module):
         def __init__(self, fbank_model: nn.Module, tail_model: nn.Module) -> None:
@@ -532,7 +531,7 @@ def export_plda(models_dir: str) -> None:
                             out = os.path.join(models_dir, f"plda_{name}.npy")
                             np.save(out, arr)
                             print(f"  plda_{name}.npy: shape={arr.shape}")
-        except Exception:
+        except Exception:  # noqa: BLE001, S110
             pass
 
 

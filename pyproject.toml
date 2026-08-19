@@ -3,21 +3,33 @@ name = "speakrs-python"
 version = "0.0.0"
 requires-python = ">=3.12,<3.13"
 dependencies = [
-    "huggingface-hub",
-    "numpy",
-    "onnx",
-    "onnxruntime",
-    "pyannote.audio>=3.3",
-    "soundfile",
-    "torch>=2.6",
+  "huggingface-hub",
+  "numpy",
+  "onnx",
+  "onnxruntime",
+  "pyannote.audio>=3.3",
+  "soundfile",
+  "torch>=2.6",
 ]
 
 [dependency-groups]
 dev = [
+  "onnx>=1.20.1",
+  "onnxscript>=0.6.2",
+  "ruff",
+  "ty",
+]
+scripts = [
+    "numpy>=2.4.2",
     "onnx>=1.20.1",
-    "onnxscript>=0.6.2",
-    "ruff",
-    "ty",
+    "onnxconverter-common>=1.16.0",
+    "onnxruntime>=1.24.3",
+    "onnxscript>=0.7.1",
+    "pyannote-audio>=4.0.4",
+    "pyarrow>=25.0.1",
+    "soundfile>=0.13.1",
+    "torch>=2.10.0",
+    "torchaudio>=2.10.0",
 ]
 
 [tool.uv]
