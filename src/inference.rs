@@ -9,7 +9,10 @@ use std::{
 };
 
 pub use embedding::EmbeddingModel;
-pub use segmentation::{SegmentationError, SegmentationModel};
+pub use segmentation::{
+    FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS, SegmentationError,
+    SegmentationModel,
+};
 
 #[cfg(any(
     feature = "coreml",

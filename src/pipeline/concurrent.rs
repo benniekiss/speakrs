@@ -4,13 +4,14 @@ use tracing::{debug, trace};
 use crate::inference::embedding::EmbeddingModel;
 use crate::powerset::PowersetMapping;
 
-use super::config::MIN_SPEAKER_ACTIVITY;
 use super::types::{
     Array3Writer, MultiMaskBatch, MultiMaskTiming, PendingEmbedding, PendingSplitEmbedding,
     PipelineError, chunk_audio_raw, flush_masked, flush_multi_mask_audio, flush_split,
     trace_multi_mask_timing,
 };
-use super::{clean_masks, select_speaker_weights, write_speaker_mask_to_slice};
+use super::{
+    clean_masks, has_enough_embedding_activity, select_speaker_weights, write_speaker_mask_to_slice,
+};
 
 pub(super) struct ConcurrentEmbeddingResult {
     pub segmentations: Array3<f32>,
@@ -315,8 +316,7 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
             for speaker_idx in 0..self.num_speakers {
                 total_speakers += 1;
                 let mask_col = seg_view.column(speaker_idx);
-                let activity: f32 = mask_col.iter().sum();
-                if activity < MIN_SPEAKER_ACTIVITY {
+                if !has_enough_embedding_activity(mask_col) {
                     skipped_speakers += 1;
                     continue;
                 }

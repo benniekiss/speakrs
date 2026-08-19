@@ -23,6 +23,8 @@ use tensor::{
     preallocated_run_options,
 };
 
+use super::segmentation::OUTPUT_FRAMES;
+
 const PRIMARY_BATCH_SIZE: usize = 64;
 const MULTI_MASK_BATCH_SIZE: usize = 32;
 const SPLIT_TAIL_BATCH_SIZE: usize = 32;
@@ -31,7 +33,7 @@ const CHUNK_SPEAKER_BATCH_SIZE: usize = 3;
 const NUM_SPEAKERS: usize = 3;
 const FBANK_FRAMES: usize = 998;
 const FBANK_FEATURES: usize = 80;
-const MASK_FRAMES: usize = 589;
+const MASK_FRAMES: usize = OUTPUT_FRAMES;
 
 #[derive(Debug, Default, Clone, Copy)]
 pub(crate) struct BatchPhaseTiming {

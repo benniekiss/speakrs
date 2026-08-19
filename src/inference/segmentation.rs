@@ -46,6 +46,19 @@ pub enum SegmentationError {
 // Static batched segmentation model used by every ORT execution provider.
 const PRIMARY_BATCH_SIZE: usize = 64;
 
+pub(crate) const SAMPLE_RATE: usize = 16_000;
+pub(crate) const WINDOW_SAMPLES: usize = SAMPLE_RATE * 10;
+pub(crate) const OUTPUT_FRAMES: usize = 589;
+const OUTPUT_FRAME_DURATION_SAMPLES: usize = 991;
+const OUTPUT_FRAME_STEP_SAMPLES: usize = 270;
+
+/// Sliding window length expected by the segmentation model, in seconds.
+pub const SEGMENTATION_WINDOW_SECONDS: f64 = WINDOW_SAMPLES as f64 / SAMPLE_RATE as f64;
+/// Duration represented by each segmentation output frame, in seconds.
+pub const FRAME_DURATION_SECONDS: f64 = OUTPUT_FRAME_DURATION_SAMPLES as f64 / SAMPLE_RATE as f64;
+/// Hop between consecutive segmentation output frames, in seconds.
+pub const FRAME_STEP_SECONDS: f64 = OUTPUT_FRAME_STEP_SAMPLES as f64 / SAMPLE_RATE as f64;
+
 /// Sliding-window segmentation model (pyannote segmentation-3.0)
 pub struct SegmentationModel {
     mode: ExecutionMode,
@@ -74,9 +87,8 @@ impl SegmentationModel {
         ensure_ort_ready()?;
 
         let model_path = model_path.as_ref();
-        let sample_rate = 16000;
-        let window_duration = 10.0;
-        let window_samples = (window_duration * sample_rate as f32) as usize;
+        let sample_rate = SAMPLE_RATE;
+        let window_samples = WINDOW_SAMPLES;
         let step_samples = (step_duration * sample_rate as f32) as usize;
 
         macro_rules! timed {

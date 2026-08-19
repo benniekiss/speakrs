@@ -5,7 +5,7 @@ use crate::inference::embedding::{
     BatchPhaseTiming, EmbeddingModel, MaskedEmbeddingInput, SplitTailInput,
 };
 use crate::pipeline::{
-    MIN_SPEAKER_ACTIVITY, clean_masks, select_speaker_weights, write_speaker_mask_to_slice,
+    clean_masks, has_enough_embedding_activity, select_speaker_weights, write_speaker_mask_to_slice,
 };
 use crate::reconstruct::Reconstructor;
 
@@ -99,8 +99,7 @@ impl DecodedSegmentations {
 
             for speaker_idx in 0..self.0.shape()[2] {
                 let mask = chunk_segmentations.column(speaker_idx);
-                let activity: f32 = mask.iter().sum();
-                if activity < MIN_SPEAKER_ACTIVITY {
+                if !has_enough_embedding_activity(mask) {
                     continue;
                 }
 

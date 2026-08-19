@@ -1,4 +1,4 @@
-use ndarray::{Array2, Array3, ArrayView2, s};
+use ndarray::{Array2, Array3, ArrayView1, ArrayView2, s};
 use tracing::{debug, trace};
 
 use crate::clustering::ahc::cluster as cluster_ahc;
@@ -7,8 +7,16 @@ use crate::clustering::vbx::cluster_vbx;
 use crate::inference::embedding::should_use_clean_mask;
 use crate::utils::cosine_similarity;
 
-use super::config::{MIN_SPEAKER_ACTIVITY, PipelineConfig};
+use super::config::PipelineConfig;
 use super::types::{ChunkEmbeddings, ChunkSpeakerClusters, DecodedSegmentations};
+
+// Avoid embedding speaker masks with fewer than ten active segmentation frames
+// (roughly 200 ms of speech at the segmentation model's frame rate).
+const MIN_EMBEDDING_ACTIVE_FRAMES: usize = 10;
+
+pub(crate) fn has_enough_embedding_activity(mask: ArrayView1<'_, f32>) -> bool {
+    mask.sum() >= MIN_EMBEDDING_ACTIVE_FRAMES as f32
+}
 
 pub(super) struct TrainingEmbeddings(pub Array2<f32>);
 
@@ -333,8 +341,7 @@ pub(crate) fn select_speaker_weights(
     min_num_samples: usize,
 ) -> Option<Vec<f32>> {
     let mask_col = seg_view.column(speaker_idx);
-    let activity: f32 = mask_col.iter().sum();
-    if activity < MIN_SPEAKER_ACTIVITY {
+    if !has_enough_embedding_activity(mask_col) {
         return None;
     }
 
@@ -357,8 +364,7 @@ pub(crate) fn write_speaker_mask_to_slice(
     dest: &mut [f32],
 ) -> bool {
     let mask_col = seg_view.column(speaker_idx);
-    let activity: f32 = mask_col.iter().sum();
-    if activity < MIN_SPEAKER_ACTIVITY {
+    if !has_enough_embedding_activity(mask_col) {
         return false;
     }
 
@@ -401,6 +407,14 @@ pub(crate) fn write_speaker_mask_to_slice(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::inference::segmentation::{OUTPUT_FRAMES, WINDOW_SAMPLES};
+
+    #[test]
+    fn embedding_activity_requires_ten_frames() {
+        let mask = Array2::<f32>::ones((10, 1));
+        assert!(!has_enough_embedding_activity(mask.slice(s![..9, 0])));
+        assert!(has_enough_embedding_activity(mask.column(0)));
+    }
 
     /// Verify write_speaker_mask_to_slice matches clean_masks + select_speaker_weights
     fn assert_matches_original(seg: &Array2<f32>, audio_len: usize, min_num_samples: usize) {
@@ -444,7 +458,7 @@ mod tests {
         for i in 0..20 {
             seg[[i, 0]] = 1.0;
         }
-        assert_matches_original(&seg, 160_000, 640);
+        assert_matches_original(&seg, WINDOW_SAMPLES, 640);
     }
 
     #[test]
@@ -454,7 +468,7 @@ mod tests {
         for i in 0..9 {
             seg[[i, 0]] = 1.0;
         }
-        assert_matches_original(&seg, 160_000, 640);
+        assert_matches_original(&seg, WINDOW_SAMPLES, 640);
     }
 
     #[test]
@@ -472,7 +486,7 @@ mod tests {
         for i in 10..20 {
             seg[[i, 1]] = 1.0;
         }
-        assert_matches_original(&seg, 160_000, 640);
+        assert_matches_original(&seg, WINDOW_SAMPLES, 640);
     }
 
     #[test]
@@ -484,7 +498,7 @@ mod tests {
             seg[[i, 1]] = 1.0; // overlap on all frames
         }
         // speaker 0 has zero clean frames but 20 raw frames
-        assert_matches_original(&seg, 160_000, 640);
+        assert_matches_original(&seg, WINDOW_SAMPLES, 640);
     }
 
     #[test]
@@ -499,7 +513,7 @@ mod tests {
     #[test]
     fn realistic_three_speaker_scenario() {
         // simulate a realistic window with three speakers
-        let mut seg = Array2::<f32>::zeros((589, 3));
+        let mut seg = Array2::<f32>::zeros((OUTPUT_FRAMES, 3));
         // speaker 0: active frames 0-300
         for i in 0..300 {
             seg[[i, 0]] = 1.0;
@@ -509,9 +523,9 @@ mod tests {
             seg[[i, 1]] = 1.0;
         }
         // speaker 2: active frames 450-589 (overlaps with 1 on 450-500)
-        for i in 450..589 {
+        for i in 450..OUTPUT_FRAMES {
             seg[[i, 2]] = 1.0;
         }
-        assert_matches_original(&seg, 160_000, 640);
+        assert_matches_original(&seg, WINDOW_SAMPLES, 640);
     }
 }

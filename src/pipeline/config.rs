@@ -1,17 +1,7 @@
 use crate::pipeline::{AhcConfig, BinarizeConfig, VbxConfig};
 
-/// Sliding window length for segmentation model input, in seconds
-pub const SEGMENTATION_WINDOW_SECONDS: f64 = 10.0;
 /// Sliding window step for segmentation, in seconds
 pub const SEGMENTATION_STEP_SECONDS: f64 = 1.0;
-/// Duration of each output frame from the segmentation model, in seconds
-pub const FRAME_DURATION_SECONDS: f64 = 0.0619375;
-/// Hop between consecutive output frames from the segmentation model, in seconds
-pub const FRAME_STEP_SECONDS: f64 = 0.016875;
-
-/// Minimum speaker activity (sum of weights) to run embedding inference.
-/// Speakers below this threshold are skipped because their NaN embedding is filtered out later
-pub(crate) const MIN_SPEAKER_ACTIVITY: f32 = 10.0;
 
 /// How to map cluster assignments back to per-frame speaker activations
 #[derive(Debug, Clone, Copy, PartialEq)]

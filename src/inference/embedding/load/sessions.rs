@@ -4,6 +4,7 @@ use ndarray::{Array2, Array3};
 
 use ort::session::{HasSelectedOutputs, RunOptions, Session};
 
+use crate::inference::segmentation::{OUTPUT_FRAMES, SAMPLE_RATE, WINDOW_SAMPLES};
 use crate::inference::{ExecutionMode, ModelLoadError};
 
 use super::super::{
@@ -152,9 +153,9 @@ impl LoadedSessions {
 
         Ok(EmbeddingModel {
             meta: EmbeddingMeta {
-                sample_rate: 16_000,
-                window_samples: 160_000,
-                mask_frames: 589,
+                sample_rate: SAMPLE_RATE,
+                window_samples: WINDOW_SAMPLES,
+                mask_frames: OUTPUT_FRAMES,
                 min_num_samples: read_min_num_samples(&metadata_path).unwrap_or(400),
             },
             ort: OrtEmbeddingState {
@@ -190,24 +191,34 @@ impl LoadedSessions {
                     MULTI_MASK_BATCH_SIZE * NUM_SPEAKERS,
                     MASK_FRAMES,
                 )),
-                waveform_buffer: Array3::zeros((1, 1, 160_000)),
-                weights_buffer: Array2::zeros((1, 589)),
-                primary_batch_waveform_buffer: Array3::zeros((PRIMARY_BATCH_SIZE, 1, 160_000)),
-                primary_batch_weights_buffer: Array2::zeros((PRIMARY_BATCH_SIZE, 589)),
-                split_waveform_buffer: Array3::zeros((1, 1, 160_000)),
-                split_fbank_batch_buffer: Array3::zeros((FBANK_BATCH_SIZE, 1, 160_000)),
+                waveform_buffer: Array3::zeros((1, 1, WINDOW_SAMPLES)),
+                weights_buffer: Array2::zeros((1, OUTPUT_FRAMES)),
+                primary_batch_waveform_buffer: Array3::zeros((
+                    PRIMARY_BATCH_SIZE,
+                    1,
+                    WINDOW_SAMPLES,
+                )),
+                primary_batch_weights_buffer: Array2::zeros((PRIMARY_BATCH_SIZE, OUTPUT_FRAMES)),
+                split_waveform_buffer: Array3::zeros((1, 1, WINDOW_SAMPLES)),
+                split_fbank_batch_buffer: Array3::zeros((FBANK_BATCH_SIZE, 1, WINDOW_SAMPLES)),
                 split_feature_batch_buffer: Array3::zeros((
                     CHUNK_SPEAKER_BATCH_SIZE,
                     FBANK_FRAMES,
                     FBANK_FEATURES,
                 )),
-                split_weights_batch_buffer: Array2::zeros((CHUNK_SPEAKER_BATCH_SIZE, 589)),
+                split_weights_batch_buffer: Array2::zeros((
+                    CHUNK_SPEAKER_BATCH_SIZE,
+                    OUTPUT_FRAMES,
+                )),
                 split_primary_feature_batch_buffer: Array3::zeros((
                     SPLIT_TAIL_BATCH_SIZE,
                     FBANK_FRAMES,
                     FBANK_FEATURES,
                 )),
-                split_primary_weights_batch_buffer: Array2::zeros((SPLIT_TAIL_BATCH_SIZE, 589)),
+                split_primary_weights_batch_buffer: Array2::zeros((
+                    SPLIT_TAIL_BATCH_SIZE,
+                    OUTPUT_FRAMES,
+                )),
             },
         })
     }

@@ -2,11 +2,10 @@ mod config;
 pub use crate::binarize::BinarizeConfig;
 pub use crate::clustering::ahc::AhcConfig;
 pub use crate::clustering::vbx::VbxConfig;
-pub(crate) use config::MIN_SPEAKER_ACTIVITY;
-pub use config::{
-    FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, PipelineConfig, ReconstructMethod,
-    SEGMENTATION_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS,
+pub use crate::inference::{
+    FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS,
 };
+pub use config::{PipelineConfig, ReconstructMethod, SEGMENTATION_STEP_SECONDS};
 
 mod types;
 pub(crate) use types::FrameActivations;
@@ -21,7 +20,9 @@ use types::{chunk_audio_raw, chunk_start_frames, total_output_frames};
 pub(crate) mod clustering;
 #[cfg(test)]
 use clustering::mark_inactive_speakers;
-pub(crate) use clustering::{clean_masks, select_speaker_weights, write_speaker_mask_to_slice};
+pub(crate) use clustering::{
+    clean_masks, has_enough_embedding_activity, select_speaker_weights, write_speaker_mask_to_slice,
+};
 
 mod concurrent;
 use concurrent::ConcurrentEmbeddingRunner;
