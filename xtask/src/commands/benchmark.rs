@@ -2,10 +2,11 @@ use std::time::Duration;
 
 use color_eyre::eyre::Result;
 
-use crate::audio::prepare_audio;
-use crate::cargo::{cargo_build_xtask, features_for_mode};
-use crate::cmd::{find_fluidaudio, project_root, run_cmd, wav_duration_seconds};
-use crate::fluidaudio;
+use crate::{
+    audio::prepare_audio,
+    cargo::{cargo_build_xtask, features_for_mode},
+    cmd::{project_root, wav_duration_seconds},
+};
 mod compare;
 mod der;
 mod jobs;
@@ -17,17 +18,28 @@ mod types;
 pub use compare::compare;
 pub use der::{DerArgs, der};
 pub use jobs::{
-    BenchmarkJobConfig, BenchmarkJobResult, GpuBenchmarkSuiteConfig, ProgressUpdate, gpu_impls,
-    run_benchmark_job, run_gpu_benchmark_suite, run_speakrs_gpu, validate_gpu_impls,
+    BenchmarkJobConfig,
+    BenchmarkJobResult,
+    GpuBenchmarkSuiteConfig,
+    ProgressUpdate,
+    gpu_impls,
+    run_benchmark_job,
+    run_gpu_benchmark_suite,
+    run_speakrs_gpu,
+    validate_gpu_impls,
 };
 pub use report::{DerResultsWriter, format_eta, now_stamp};
-pub(crate) use selection::discover_files;
-pub(crate) use types::{BatchCommandRunner, PREFLIGHT_TIMEOUT, PyannoteRsFileRunner};
-pub use types::{
-    BenchmarkMetadata, DerAccumulation, DerImplResult, DerImplStatus, ImplType, PyannoteBatchSizes,
-};
-
 use runner::{CommandSpec, capture_benchmark_cmd};
+pub(crate) use selection::discover_files;
+pub(crate) use types::{BatchCommandRunner, PREFLIGHT_TIMEOUT};
+pub use types::{
+    BenchmarkMetadata,
+    DerAccumulation,
+    DerImplResult,
+    DerImplStatus,
+    ImplType,
+    PyannoteBatchSizes,
+};
 
 pub fn run(
     source: &str,

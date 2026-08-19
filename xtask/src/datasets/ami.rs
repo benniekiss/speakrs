@@ -1,12 +1,8 @@
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use std::{fs, path::Path, process::Command};
 
 use color_eyre::eyre::{Result, bail};
 
-use crate::cmd::run_cmd;
-use crate::convert::convert_to_16k_mono;
-use crate::path::file_stem_string;
+use crate::{cmd::run_cmd, convert::convert_to_16k_mono, path::file_stem_string};
 
 /// AMI IHM (Individual Headset Mix)
 /// RTTMs from BUTSpeechFIT, audio from Edinburgh DataShare

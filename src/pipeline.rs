@@ -1,17 +1,24 @@
 mod config;
-pub use crate::binarize::BinarizeConfig;
-pub use crate::clustering::ahc::AhcConfig;
-pub use crate::clustering::vbx::VbxConfig;
-pub use crate::inference::{
-    FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS,
-};
 pub use config::{PipelineConfig, ReconstructMethod, SEGMENTATION_STEP_SECONDS};
+
+pub use crate::{
+    binarize::BinarizeConfig,
+    clustering::{ahc::AhcConfig, vbx::VbxConfig},
+    inference::{FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS},
+};
 
 mod types;
 pub(crate) use types::FrameActivations;
 pub use types::{
-    BatchInput, ChunkEmbeddings, ChunkSpeakerClusters, DecodedSegmentations, DiarizationResult,
-    DiscreteDiarization, InferenceArtifacts, PipelineError, SpeakerCountTrack,
+    BatchInput,
+    ChunkEmbeddings,
+    ChunkSpeakerClusters,
+    DecodedSegmentations,
+    DiarizationResult,
+    DiscreteDiarization,
+    InferenceArtifacts,
+    PipelineError,
+    SpeakerCountTrack,
 };
 use types::{ChunkLayout, EmbeddingPath, InferencePath, RawSegmentationWindows};
 #[cfg(test)]
@@ -21,7 +28,10 @@ pub(crate) mod clustering;
 #[cfg(test)]
 use clustering::mark_inactive_speakers;
 pub(crate) use clustering::{
-    clean_masks, has_enough_embedding_activity, select_speaker_weights, write_speaker_mask_to_slice,
+    clean_masks,
+    has_enough_embedding_activity,
+    select_speaker_weights,
+    write_speaker_mask_to_slice,
 };
 
 mod concurrent;
@@ -35,8 +45,13 @@ pub use builder::PipelineBuilder;
 
 mod queued;
 pub use queued::{
-    QueueError, QueueReceiver, QueueReceiverIter, QueueSender, QueuedDiarizationJobId,
-    QueuedDiarizationRequest, QueuedDiarizationResult,
+    QueueError,
+    QueueReceiver,
+    QueueReceiverIter,
+    QueueSender,
+    QueuedDiarizationJobId,
+    QueuedDiarizationRequest,
+    QueuedDiarizationResult,
 };
 
 #[cfg(test)]
@@ -47,11 +62,11 @@ use std::path::Path;
 use ndarray::{Array2, Array3};
 use tracing::{debug, trace};
 
-use crate::clustering::plda::PldaTransform;
-use crate::inference::ExecutionMode;
-use crate::inference::embedding::EmbeddingModel;
-use crate::inference::segmentation::SegmentationModel;
-use crate::powerset::PowersetMapping;
+use crate::{
+    clustering::plda::PldaTransform,
+    inference::{ExecutionMode, embedding::EmbeddingModel, segmentation::SegmentationModel},
+    powerset::PowersetMapping,
+};
 
 /// Shared run/query methods for both owned and borrowed pipeline facades.
 /// Both structs provide `runner()`, `mode`, and `seg_model` with compatible types
@@ -138,6 +153,8 @@ pub struct OwnedDiarizationPipeline {
 }
 
 impl OwnedDiarizationPipeline {
+    pipeline_run_methods!();
+
     /// Load models from a local directory using the default pipeline config
     pub fn from_dir(
         models_dir: impl Into<std::path::PathBuf>,
@@ -159,8 +176,6 @@ impl OwnedDiarizationPipeline {
     pub fn from_pretrained(mode: ExecutionMode) -> Result<Self, PipelineError> {
         PipelineBuilder::from_pretrained(mode)?.build()
     }
-
-    pipeline_run_methods!();
 
     /// Run post-inference (clustering + reconstruction) on pre-computed artifacts
     ///
@@ -199,6 +214,8 @@ pub struct DiarizationPipeline<'a> {
 }
 
 impl<'a> DiarizationPipeline<'a> {
+    pipeline_run_methods!();
+
     /// Build a pipeline from pre-loaded models and a PLDA parameters directory
     pub fn new(
         seg_model: &'a mut SegmentationModel,
@@ -229,8 +246,6 @@ impl<'a> DiarizationPipeline<'a> {
     pub fn default_segmentation_step() -> f32 {
         SEGMENTATION_STEP_SECONDS as f32
     }
-
-    pipeline_run_methods!();
 }
 
 impl OwnedDiarizationPipeline {

@@ -1,8 +1,9 @@
 use std::{path::Path, time::Duration};
 
-use crate::inference::{ExecutionMode, ModelLoadError};
 use ndarray::{Array2, Array3, s};
 use ort::session::{HasSelectedOutputs, RunOptions, Session};
+
+use crate::inference::{ExecutionMode, ModelLoadError};
 
 mod batch;
 
@@ -15,11 +16,20 @@ mod tail;
 mod tensor;
 
 use paths::{
-    batched_model_path, multi_mask_model_path, read_min_num_samples, select_mask,
-    split_fbank_batched_model_path, split_fbank_model_path, split_tail_model_path,
+    batched_model_path,
+    multi_mask_model_path,
+    read_min_num_samples,
+    select_mask,
+    split_fbank_batched_model_path,
+    split_fbank_model_path,
+    split_tail_model_path,
 };
 use tensor::{
-    array1_slice, array2_from_shape_vec, array2_slice_mut, array3_slice_mut, first_output,
+    array1_slice,
+    array2_from_shape_vec,
+    array2_slice_mut,
+    array3_slice_mut,
+    first_output,
     preallocated_run_options,
 };
 
@@ -242,8 +252,9 @@ pub(crate) fn should_use_clean_mask(
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use ndarray::array;
+
+    use super::*;
 
     #[test]
     fn select_mask_prefers_clean_mask_when_it_is_long_enough() {

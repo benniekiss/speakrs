@@ -1,18 +1,15 @@
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::Duration;
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+    time::Duration,
+};
 
 use color_eyre::eyre::Result;
 
-use crate::cmd::wav_duration_seconds;
+use super::runner::{BatchRunOutput, BenchmarkError, CommandSpec, capture_benchmark_cmd};
 use crate::path::file_stem_string;
-
-use super::report::{format_eta, now_stamp};
-use super::runner::{
-    BatchRunOutput, BenchmarkError, CommandSpec, SingleRunOutput, capture_benchmark_cmd,
-};
 
 pub struct BenchmarkMetadata {
     pub git_sha: String,
@@ -62,9 +59,6 @@ impl PyannoteBatchSizes {
 pub enum ImplType {
     Speakrs(&'static str),
     Pyannote(&'static str),
-    PyannoteRs,
-    FluidAudioBench,
-    SpeakerKitBench,
 }
 
 #[derive(Clone, Copy, serde::Serialize)]
@@ -254,14 +248,6 @@ impl BatchCommandRunner {
         Self { command_spec }
     }
 
-    pub fn binary(binary: &Path, wav_paths: &[&Path]) -> Self {
-        let mut command_spec = CommandSpec::new(binary.as_os_str().to_os_string());
-        for wav_path in wav_paths {
-            command_spec = command_spec.arg(wav_path.as_os_str().to_os_string());
-        }
-        Self { command_spec }
-    }
-
     pub fn run_with_retries(&self, timeout: Duration) -> Result<BatchRunOutput> {
         for attempt in 0..=MAX_RETRIES {
             let mut benchmark_command = self.command_spec.build_command();
@@ -288,65 +274,6 @@ impl BatchCommandRunner {
             }
         }
         unreachable!()
-    }
-}
-
-pub(crate) struct PyannoteRsFileRunner {
-    binary: PathBuf,
-    seg_model: PathBuf,
-    emb_model: PathBuf,
-}
-
-impl PyannoteRsFileRunner {
-    pub(crate) fn new(binary: PathBuf, seg_model: PathBuf, emb_model: PathBuf) -> Self {
-        Self {
-            binary,
-            seg_model,
-            emb_model,
-        }
-    }
-
-    pub(crate) fn run(&self, files: &[(PathBuf, PathBuf)]) -> Result<BatchRunOutput> {
-        let mut total_seconds = 0.0;
-        let mut per_file_rttm = HashMap::new();
-        let total_files = files.len();
-
-        for (file_idx, (wav_path, _)) in files.iter().enumerate() {
-            let timeout = Duration::from_secs_f64(
-                (wav_duration_seconds(wav_path).unwrap_or(60.0) * 5.0).max(120.0),
-            );
-            let output = self.run_single(wav_path, timeout)?;
-            total_seconds += output.elapsed_seconds;
-
-            let stem = file_stem_string(wav_path)?;
-            per_file_rttm.insert(stem.clone(), output.rttm);
-
-            let average_seconds = total_seconds / (file_idx + 1) as f64;
-            let remaining_seconds = (total_files - file_idx - 1) as f64 * average_seconds;
-            let eta = format_eta(remaining_seconds);
-            let total_elapsed = format_eta(total_seconds);
-            eprintln!(
-                "  [{}/{}] {stem}: {:.1}s (elapsed {total_elapsed}, ETA {eta}) [{}]",
-                file_idx + 1,
-                total_files,
-                output.elapsed_seconds,
-                now_stamp()
-            );
-        }
-
-        Ok(BatchRunOutput {
-            total_seconds,
-            per_file_rttm,
-        })
-    }
-
-    fn run_single(&self, wav_path: &Path, timeout: Duration) -> Result<SingleRunOutput> {
-        let mut benchmark_command = Command::new(&self.binary);
-        benchmark_command
-            .arg(wav_path)
-            .arg(&self.seg_model)
-            .arg(&self.emb_model);
-        capture_benchmark_cmd(&mut benchmark_command, timeout)
     }
 }
 

@@ -1,8 +1,12 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
-use speakrs::PipelineError;
-use speakrs::inference::{DynamicRuntimeError, ModelLoadError, OrtRuntimeError};
+use speakrs::{
+    PipelineError,
+    inference::{DynamicRuntimeError, ModelLoadError, OrtRuntimeError},
+};
 
 pub fn fixture_path(name: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))

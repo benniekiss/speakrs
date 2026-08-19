@@ -128,7 +128,8 @@ pub fn vbx(
             log_p_x[sample_idx] = logsumexp_f64(&scratch.view());
         }
 
-        // gamma[sample_idx,speaker_idx] = exp(log_p[sample_idx,speaker_idx] + lpi[speaker_idx] - log_p_x[sample_idx])
+        // gamma[sample_idx,speaker_idx] = exp(log_p[sample_idx,speaker_idx] + lpi[speaker_idx] -
+        // log_p_x[sample_idx])
         for sample_idx in 0..n_samples {
             for speaker_idx in 0..n_speakers {
                 gamma[[sample_idx, speaker_idx]] =
@@ -200,12 +201,13 @@ fn build_gamma_init(labels: &[usize], smoothing: f64) -> Array2<f32> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use std::{fs::File, path::PathBuf};
+
     use approx::assert_abs_diff_eq;
     use ndarray::{Array1, Array2, array};
     use ndarray_npy::ReadNpyExt;
-    use std::fs::File;
-    use std::path::PathBuf;
+
+    use super::*;
 
     fn fixture_path(name: &str) -> PathBuf {
         PathBuf::from(env!("CARGO_MANIFEST_DIR"))

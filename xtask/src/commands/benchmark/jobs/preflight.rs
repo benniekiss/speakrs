@@ -1,12 +1,12 @@
-use std::path::Path;
-use std::time::Duration;
+use std::{path::Path, time::Duration};
 
 use color_eyre::eyre::{Result, ensure};
 
-use super::super::{BatchCommandRunner, ImplType, PyannoteBatchSizes, discover_files};
-use super::run_speakrs_gpu;
-use crate::cmd::wav_duration_seconds;
-use crate::path::file_stem_string;
+use super::{
+    super::{BatchCommandRunner, ImplType, PyannoteBatchSizes, discover_files},
+    run_speakrs_gpu,
+};
+use crate::{cmd::wav_duration_seconds, path::file_stem_string};
 
 pub(super) fn preflight(
     datasets: &[crate::datasets::Dataset],
@@ -42,7 +42,6 @@ pub(super) fn preflight(
                 pyannote_batch_sizes,
             )
             .run_with_retries(Duration::from_secs(180)),
-            _ => continue,
         };
 
         let output = result

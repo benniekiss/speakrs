@@ -2,8 +2,7 @@ use std::process::Command;
 
 use color_eyre::eyre::{Result, eyre};
 use ndarray::{Array1, Array2, Array3, ArrayView2, s};
-use speakrs::PowersetMapping;
-use speakrs::inference::SegmentationModel;
+use speakrs::{PowersetMapping, inference::SegmentationModel};
 
 pub(crate) fn decode_windows(
     raw_windows: Vec<Array2<f32>>,

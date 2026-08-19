@@ -5,16 +5,31 @@ mod layout;
 
 pub(crate) use data::FrameActivations;
 pub use data::{
-    BatchInput, ChunkEmbeddings, ChunkSpeakerClusters, DecodedSegmentations, DiarizationResult,
-    DiscreteDiarization, InferenceArtifacts, SpeakerCountTrack,
+    BatchInput,
+    ChunkEmbeddings,
+    ChunkSpeakerClusters,
+    DecodedSegmentations,
+    DiarizationResult,
+    DiscreteDiarization,
+    InferenceArtifacts,
+    SpeakerCountTrack,
 };
 pub(super) use data::{
-    EmbeddingPath, InferencePath, PendingEmbedding, PendingSplitEmbedding, RawSegmentationWindows,
+    EmbeddingPath,
+    InferencePath,
+    PendingEmbedding,
+    PendingSplitEmbedding,
+    RawSegmentationWindows,
 };
 pub use error::PipelineError;
 pub(super) use extract::{
-    Array3Writer, MultiMaskBatch, MultiMaskTiming, flush_masked, flush_multi_mask_audio,
-    flush_split, trace_multi_mask_timing,
+    Array3Writer,
+    MultiMaskBatch,
+    MultiMaskTiming,
+    flush_masked,
+    flush_multi_mask_audio,
+    flush_split,
+    trace_multi_mask_timing,
 };
 pub(super) use layout::{ChunkLayout, chunk_audio_raw};
 #[cfg(test)]

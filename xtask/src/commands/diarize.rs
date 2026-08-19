@@ -1,13 +1,10 @@
-use std::fmt;
-use std::path::PathBuf;
-use std::process::Command;
-use std::str::FromStr;
-use std::time::Instant;
+use std::{fmt, path::PathBuf, process::Command, str::FromStr, time::Instant};
 
 use color_eyre::eyre::{Result, bail, ensure};
-use speakrs::inference::ExecutionMode;
-use speakrs::inference::{EmbeddingModel, SegmentationModel};
-use speakrs::pipeline::{DiarizationPipeline, SEGMENTATION_STEP_SECONDS};
+use speakrs::{
+    inference::{EmbeddingModel, ExecutionMode, SegmentationModel},
+    pipeline::{DiarizationPipeline, SEGMENTATION_STEP_SECONDS},
+};
 
 use crate::wav;
 

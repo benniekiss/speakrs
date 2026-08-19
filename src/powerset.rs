@@ -96,12 +96,12 @@ fn combinations(total: usize, size: usize) -> Vec<Vec<usize>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use ndarray::Array3;
-    use ndarray::array;
+    use std::{fs::File, path::PathBuf};
+
+    use ndarray::{Array3, array};
     use ndarray_npy::ReadNpyExt;
-    use std::fs::File;
-    use std::path::PathBuf;
+
+    use super::*;
 
     impl PowersetMapping {
         fn encode(&self, multilabel: &Array2<f32>) -> Array2<f32> {

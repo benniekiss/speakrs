@@ -2,8 +2,10 @@ use std::process::Command;
 
 use color_eyre::eyre::Result;
 
-use crate::cmd::{project_root, run_cmd};
-use crate::python::{uv_run, uv_run_project};
+use crate::{
+    cmd::{project_root, run_cmd},
+    python::{uv_run, uv_run_project},
+};
 
 pub fn export() -> Result<()> {
     uv_run(&["scripts/export_models.py", "fixtures/models"])?;

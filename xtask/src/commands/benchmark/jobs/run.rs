@@ -12,12 +12,24 @@ use color_eyre::eyre::{Result, bail};
 
 #[cfg(feature = "cuda")]
 use super::super::{
-    BatchCommandRunner, BenchmarkMetadata, DerAccumulation, DerImplResult, DerResultsWriter,
-    ImplType, discover_files, format_eta, now_stamp,
+    BatchCommandRunner,
+    BenchmarkMetadata,
+    DerAccumulation,
+    DerImplResult,
+    DerResultsWriter,
+    ImplType,
+    discover_files,
+    format_eta,
+    now_stamp,
 };
-use super::gpu::resolve_gpu_impls;
-use super::preflight::preflight;
-use super::{BenchmarkJobConfig, BenchmarkJobResult, GpuBenchmarkSuiteConfig, ProgressUpdate};
+use super::{
+    BenchmarkJobConfig,
+    BenchmarkJobResult,
+    GpuBenchmarkSuiteConfig,
+    ProgressUpdate,
+    gpu::resolve_gpu_impls,
+    preflight::preflight,
+};
 use crate::commands::benchmark::runner::BatchRunOutput;
 #[cfg(feature = "cuda")]
 use crate::path::file_stem_string;
@@ -240,8 +252,10 @@ pub fn run_speakrs_gpu(
     mode: &str,
     progress_cb: Option<&(dyn Fn(&ProgressUpdate) + Send + Sync)>,
 ) -> Result<BatchRunOutput> {
-    use speakrs::inference::{EmbeddingModel, ExecutionMode, SegmentationModel};
-    use speakrs::pipeline::{DiarizationPipeline, SEGMENTATION_STEP_SECONDS};
+    use speakrs::{
+        inference::{EmbeddingModel, ExecutionMode, SegmentationModel},
+        pipeline::{DiarizationPipeline, SEGMENTATION_STEP_SECONDS},
+    };
 
     use crate::wav;
 

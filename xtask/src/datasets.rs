@@ -4,9 +4,11 @@ mod ami;
 mod earnings21;
 mod voxconverse;
 
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use color_eyre::eyre::Result;
 
@@ -311,9 +313,9 @@ fn ensure_hf(display_name: &str, repo: &str, dir: &Path) -> Result<()> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     use tempfile::TempDir;
+
+    use super::*;
 
     #[test]
     fn dataset_has_expected_files_when_wav_and_rttm_are_present() {

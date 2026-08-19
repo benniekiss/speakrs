@@ -1,11 +1,15 @@
-use std::fmt::{Display, Formatter};
-use std::path::Path;
+use std::{
+    fmt::{Display, Formatter},
+    path::Path,
+};
 
 use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis, s};
 use ndarray_npy::read_npy;
 
-use crate::linalg::{Eigh, Inverse, LinalgError, UPLO};
-use crate::utils::l2_normalize_rows_f64;
+use crate::{
+    linalg::{Eigh, Inverse, LinalgError, UPLO},
+    utils::l2_normalize_rows_f64,
+};
 
 /// PLDA transform computed entirely in f64 to match pyannote's numpy precision
 /// Parameters are stored as f64 internally, and the transform method returns f32
@@ -155,9 +159,10 @@ impl From<LinalgError> for PldaError {
 
 #[cfg(test)]
 mod tests {
+    use std::fs::File;
+
     use approx::assert_abs_diff_eq;
     use ndarray_npy::ReadNpyExt;
-    use std::fs::File;
 
     use super::*;
 

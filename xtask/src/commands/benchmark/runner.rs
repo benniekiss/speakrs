@@ -1,9 +1,11 @@
-use std::collections::HashMap;
-use std::ffi::OsString;
-use std::io::Read as _;
-use std::path::PathBuf;
-use std::process::{Command, Stdio};
-use std::time::{Duration, Instant};
+use std::{
+    collections::HashMap,
+    ffi::OsString,
+    io::Read as _,
+    path::PathBuf,
+    process::{Command, Stdio},
+    time::{Duration, Instant},
+};
 
 use color_eyre::eyre::Result;
 use wait_timeout::ChildExt;

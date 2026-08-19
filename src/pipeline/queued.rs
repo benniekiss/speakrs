@@ -1,12 +1,20 @@
-use std::any::Any;
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::thread::JoinHandle;
+use std::{
+    any::Any,
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+    thread::JoinHandle,
+};
 
 use crossbeam_channel::{Receiver, Sender};
 
 use super::{
-    BatchInput, DiarizationResult, OwnedDiarizationPipeline, PipelineConfig, PipelineError,
+    BatchInput,
+    DiarizationResult,
+    OwnedDiarizationPipeline,
+    PipelineConfig,
+    PipelineError,
 };
 
 // compile-time Send assertion
@@ -267,8 +275,8 @@ impl Iterator for QueueReceiverIter {
 }
 
 impl IntoIterator for QueueReceiver {
-    type Item = Result<QueuedDiarizationResult, QueueError>;
     type IntoIter = QueueReceiverIter;
+    type Item = Result<QueuedDiarizationResult, QueueError>;
 
     fn into_iter(self) -> Self::IntoIter {
         QueueReceiverIter {

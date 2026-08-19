@@ -1,16 +1,16 @@
-use color_eyre::eyre::{Result, bail, ensure};
-use ndarray::s;
-use ort::ep;
-use ort::memory::Allocator;
-use ort::session::{OutputSelector, RunOptions, Session};
-use ort::value::{Tensor, TensorRef};
-use speakrs::PowersetMapping;
-use speakrs::inference::SegmentationModel;
-use speakrs::pipeline::SEGMENTATION_STEP_SECONDS;
 use std::path::{Path, PathBuf};
 
-use crate::commands::profile_support;
-use crate::wav;
+use color_eyre::eyre::{Result, bail, ensure};
+use ndarray::s;
+use ort::{
+    ep,
+    memory::Allocator,
+    session::{OutputSelector, RunOptions, Session},
+    value::{Tensor, TensorRef},
+};
+use speakrs::{PowersetMapping, inference::SegmentationModel, pipeline::SEGMENTATION_STEP_SECONDS};
+
+use crate::{commands::profile_support, wav};
 
 pub fn run(
     mode: &str,

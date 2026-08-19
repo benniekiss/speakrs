@@ -1,17 +1,30 @@
 use ndarray::{Array2, Array3, s};
 use tracing::{debug, trace};
 
-use crate::inference::embedding::{
-    BatchPhaseTiming, EmbeddingModel, MaskedEmbeddingInput, SplitTailInput,
-};
-use crate::pipeline::{
-    clean_masks, has_enough_embedding_activity, select_speaker_weights, write_speaker_mask_to_slice,
-};
-use crate::reconstruct::Reconstructor;
-
 use super::{
-    ChunkEmbeddings, ChunkLayout, DecodedSegmentations, EmbeddingPath, PendingEmbedding,
-    PendingSplitEmbedding, PipelineError, SpeakerCountTrack,
+    ChunkEmbeddings,
+    ChunkLayout,
+    DecodedSegmentations,
+    EmbeddingPath,
+    PendingEmbedding,
+    PendingSplitEmbedding,
+    PipelineError,
+    SpeakerCountTrack,
+};
+use crate::{
+    inference::embedding::{
+        BatchPhaseTiming,
+        EmbeddingModel,
+        MaskedEmbeddingInput,
+        SplitTailInput,
+    },
+    pipeline::{
+        clean_masks,
+        has_enough_embedding_activity,
+        select_speaker_weights,
+        write_speaker_mask_to_slice,
+    },
+    reconstruct::Reconstructor,
 };
 
 impl DecodedSegmentations {

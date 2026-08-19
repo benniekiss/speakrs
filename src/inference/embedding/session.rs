@@ -2,9 +2,8 @@ use std::path::Path;
 
 use ort::session::Session;
 
-use crate::inference::with_execution_mode_options;
-
 use super::{EmbeddingModel, ExecutionMode};
+use crate::inference::with_execution_mode_options;
 
 impl EmbeddingModel {
     pub(super) fn build_session(

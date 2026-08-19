@@ -1,18 +1,34 @@
 use std::path::Path;
 
 use ndarray::{Array2, Array3};
-
 use ort::session::{HasSelectedOutputs, RunOptions, Session};
 
-use crate::inference::segmentation::{OUTPUT_FRAMES, SAMPLE_RATE, WINDOW_SAMPLES};
-use crate::inference::{ExecutionMode, ModelLoadError};
-
 use super::super::{
-    CHUNK_SPEAKER_BATCH_SIZE, EmbeddingBuffers, EmbeddingMeta, EmbeddingModel, FBANK_BATCH_SIZE,
-    FBANK_FEATURES, FBANK_FRAMES, MASK_FRAMES, MULTI_MASK_BATCH_SIZE, NUM_SPEAKERS,
-    OrtEmbeddingState, PRIMARY_BATCH_SIZE, SPLIT_TAIL_BATCH_SIZE, batched_model_path,
-    multi_mask_model_path, preallocated_run_options, read_min_num_samples,
-    split_fbank_batched_model_path, split_fbank_model_path, split_tail_model_path,
+    CHUNK_SPEAKER_BATCH_SIZE,
+    EmbeddingBuffers,
+    EmbeddingMeta,
+    EmbeddingModel,
+    FBANK_BATCH_SIZE,
+    FBANK_FEATURES,
+    FBANK_FRAMES,
+    MASK_FRAMES,
+    MULTI_MASK_BATCH_SIZE,
+    NUM_SPEAKERS,
+    OrtEmbeddingState,
+    PRIMARY_BATCH_SIZE,
+    SPLIT_TAIL_BATCH_SIZE,
+    batched_model_path,
+    multi_mask_model_path,
+    preallocated_run_options,
+    read_min_num_samples,
+    split_fbank_batched_model_path,
+    split_fbank_model_path,
+    split_tail_model_path,
+};
+use crate::inference::{
+    ExecutionMode,
+    ModelLoadError,
+    segmentation::{OUTPUT_FRAMES, SAMPLE_RATE, WINDOW_SAMPLES},
 };
 
 pub(super) struct LoadedOrtSessions {

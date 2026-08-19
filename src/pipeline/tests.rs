@@ -1,7 +1,10 @@
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+};
+
 use ndarray::{Array1, Array2, Array3, array, s};
 use ndarray_npy::ReadNpyExt;
-use std::fs::File;
-use std::path::{Path, PathBuf};
 
 use super::*;
 use crate::inference::{DynamicRuntimeError, ModelLoadError, OrtRuntimeError};

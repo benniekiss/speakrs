@@ -1,10 +1,11 @@
 mod support;
 
-use std::path::{Path, PathBuf};
-use std::thread;
+use std::{
+    path::{Path, PathBuf},
+    thread,
+};
 
 use speakrs::{ExecutionMode, PipelineBuilder, QueuedDiarizationRequest};
-
 use support::{ExampleResult, file_id_from_path, load_wav_samples};
 
 fn main() -> ExampleResult<()> {

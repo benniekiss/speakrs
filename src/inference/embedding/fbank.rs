@@ -2,7 +2,11 @@ use ndarray::{Array2, s};
 use ort::value::TensorRef;
 
 use super::{
-    BatchPhaseTiming, EmbeddingModel, FBANK_BATCH_SIZE, array2_from_shape_vec, first_output,
+    BatchPhaseTiming,
+    EmbeddingModel,
+    FBANK_BATCH_SIZE,
+    array2_from_shape_vec,
+    first_output,
 };
 
 impl EmbeddingModel {

@@ -9,11 +9,6 @@ use std::{
 };
 
 pub use embedding::EmbeddingModel;
-pub use segmentation::{
-    FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS, SegmentationError,
-    SegmentationModel,
-};
-
 #[cfg(any(
     feature = "coreml",
     feature = "cuda",
@@ -22,6 +17,13 @@ pub use segmentation::{
 ))]
 use ort::ep;
 use ort::session::builder::SessionBuilder;
+pub use segmentation::{
+    FRAME_DURATION_SECONDS,
+    FRAME_STEP_SECONDS,
+    SEGMENTATION_WINDOW_SECONDS,
+    SegmentationError,
+    SegmentationModel,
+};
 
 #[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
 static ORT_RUNTIME_INIT: OnceLock<Result<(), OrtRuntimeError>> = OnceLock::new();
@@ -431,7 +433,6 @@ fn dedup_paths(paths: Vec<PathBuf>) -> Vec<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::ExecutionMode;
-
     #[cfg(all(feature = "load-dynamic", not(target_arch = "wasm32")))]
     use super::{DynamicRuntimeError, OrtRuntimeError, ensure_ort_ready};
 

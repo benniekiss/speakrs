@@ -1,10 +1,8 @@
 mod support;
 
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::{collections::BTreeMap, path::Path};
 
 use speakrs::{ExecutionMode, OwnedDiarizationPipeline};
-
 use support::{ExampleResult, load_wav_samples};
 
 fn main() -> ExampleResult<()> {

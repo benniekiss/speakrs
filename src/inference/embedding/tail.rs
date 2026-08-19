@@ -2,8 +2,16 @@ use ndarray::{Array1, Array2, ArrayView2, s};
 use ort::value::TensorRef;
 
 use super::{
-    CHUNK_SPEAKER_BATCH_SIZE, EmbeddingModel, FBANK_FEATURES, FBANK_FRAMES, array1_slice,
-    array2_from_shape_vec, array3_slice_mut, first_output, select_mask, should_use_clean_mask,
+    CHUNK_SPEAKER_BATCH_SIZE,
+    EmbeddingModel,
+    FBANK_FEATURES,
+    FBANK_FRAMES,
+    array1_slice,
+    array2_from_shape_vec,
+    array3_slice_mut,
+    first_output,
+    select_mask,
+    should_use_clean_mask,
 };
 
 impl EmbeddingModel {

@@ -1,16 +1,17 @@
 use std::path::PathBuf;
 
-use crate::clustering::plda::PldaTransform;
-use crate::inference::ExecutionMode;
-use crate::inference::embedding::EmbeddingModel;
-use crate::inference::segmentation::SegmentationModel;
-use crate::models::ModelBundle;
-use crate::powerset::PowersetMapping;
-
-use super::OwnedDiarizationPipeline;
-use super::config::{PipelineConfig, SEGMENTATION_STEP_SECONDS};
-use super::queued::{QueueReceiver, QueueSender};
-use super::types::PipelineError;
+use super::{
+    OwnedDiarizationPipeline,
+    config::{PipelineConfig, SEGMENTATION_STEP_SECONDS},
+    queued::{QueueReceiver, QueueSender},
+    types::PipelineError,
+};
+use crate::{
+    clustering::plda::PldaTransform,
+    inference::{ExecutionMode, embedding::EmbeddingModel, segmentation::SegmentationModel},
+    models::ModelBundle,
+    powerset::PowersetMapping,
+};
 
 /// Builder for constructing diarization pipelines
 ///
@@ -23,8 +24,7 @@ use super::types::PipelineError;
 /// let mut pipeline = PipelineBuilder::from_pretrained(ExecutionMode::Cpu)?.build()?;
 ///
 /// // from local directory
-/// let mut pipeline = PipelineBuilder::from_dir("./models", ExecutionMode::Cpu)
-///     .build()?;
+/// let mut pipeline = PipelineBuilder::from_dir("./models", ExecutionMode::Cpu).build()?;
 /// # Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
 /// ```
 pub struct PipelineBuilder {

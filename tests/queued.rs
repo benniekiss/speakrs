@@ -1,10 +1,15 @@
-use std::collections::HashMap;
-use std::thread;
+use std::{collections::HashMap, thread};
 
-use speakrs::inference::ExecutionMode;
-use speakrs::pipeline::{
-    OwnedDiarizationPipeline, PipelineBuilder, PipelineConfig, QueueError,
-    QueuedDiarizationRequest, ReconstructMethod,
+use speakrs::{
+    inference::ExecutionMode,
+    pipeline::{
+        OwnedDiarizationPipeline,
+        PipelineBuilder,
+        PipelineConfig,
+        QueueError,
+        QueuedDiarizationRequest,
+        ReconstructMethod,
+    },
 };
 
 mod support;

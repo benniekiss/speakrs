@@ -130,8 +130,9 @@ pub fn to_rttm(segments: &[Segment], file_id: &str) -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use ndarray::array;
+
+    use super::*;
 
     #[test]
     fn single_segment_timing() {

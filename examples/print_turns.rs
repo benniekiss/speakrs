@@ -3,7 +3,6 @@ mod support;
 use std::path::Path;
 
 use speakrs::{ExecutionMode, OwnedDiarizationPipeline};
-
 use support::{ExampleResult, load_wav_samples};
 
 fn main() -> ExampleResult<()> {

@@ -1,16 +1,16 @@
 use std::fs;
+#[cfg(all(feature = "coreml", feature = "_metrics"))]
+use std::time::{Duration, Instant};
 
 use ndarray::{Array2, Array3};
 use ndarray_npy::ReadNpyExt;
-use speakrs::OwnedDiarizationPipeline;
-use speakrs::inference::{EmbeddingModel, SegmentationModel};
-use speakrs::pipeline::{DiarizationPipeline, FRAME_STEP_SECONDS, SEGMENTATION_STEP_SECONDS};
-
-use speakrs::inference::ExecutionMode;
 #[cfg(all(feature = "coreml", feature = "_metrics"))]
 use speakrs::metrics::{compute_der, parse_rttm};
-#[cfg(all(feature = "coreml", feature = "_metrics"))]
-use std::time::{Duration, Instant};
+use speakrs::{
+    OwnedDiarizationPipeline,
+    inference::{EmbeddingModel, ExecutionMode, SegmentationModel},
+    pipeline::{DiarizationPipeline, FRAME_STEP_SECONDS, SEGMENTATION_STEP_SECONDS},
+};
 
 mod support;
 

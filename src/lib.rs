@@ -55,7 +55,10 @@
 //! let result = pipeline.run(&audio)?;
 //!
 //! for segment in result.discrete_diarization.to_segments() {
-//!     println!("{:.3} - {:.3}  {}", segment.start, segment.end, segment.speaker);
+//!     println!(
+//!         "{:.3} - {:.3}  {}",
+//!         segment.start, segment.end, segment.speaker
+//!     );
 //! }
 //! # Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
 //! ```
@@ -74,7 +77,8 @@
 //!
 //! std::thread::spawn(move || {
 //!     for (file_id, audio) in receive_files() {
-//!         tx.push(QueuedDiarizationRequest::new(file_id, audio)).unwrap();
+//!         tx.push(QueuedDiarizationRequest::new(file_id, audio))
+//!             .unwrap();
 //!     }
 //! });
 //!
@@ -91,13 +95,12 @@
 //!
 //! ```no_run
 //! use std::path::Path;
+//!
 //! use speakrs::{ExecutionMode, OwnedDiarizationPipeline};
 //!
 //! # let audio: Vec<f32> = vec![];
-//! let mut pipeline = OwnedDiarizationPipeline::from_dir(
-//!     Path::new("/path/to/models"),
-//!     ExecutionMode::Cpu,
-//! )?;
+//! let mut pipeline =
+//!     OwnedDiarizationPipeline::from_dir(Path::new("/path/to/models"), ExecutionMode::Cpu)?;
 //! let result = pipeline.run(&audio)?;
 //! # Ok::<(), Box<dyn std::error::Error + Send + Sync>>(())
 //! ```
@@ -141,11 +144,11 @@
 //! In the end-to-end pattern shown by its examples, `pyannote-rs`:
 //!
 //! 1. runs the pyannote segmentation model on non-overlapping 10-second windows;
-//! 2. reduces every frame to speech or non-speech, emitting one segment for each
-//!    uninterrupted region of speech;
+//! 2. reduces every frame to speech or non-speech, emitting one segment for each uninterrupted
+//!    region of speech;
 //! 3. computes one speaker embedding for that entire segment; and
-//! 4. assigns the segment online by comparing its embedding with previously seen
-//!    speakers using a fixed cosine-similarity threshold.
+//! 4. assigns the segment online by comparing its embedding with previously seen speakers using a
+//!    fixed cosine-similarity threshold.
 //!
 //! That is closer to voice activity detection followed by online speaker
 //! matching than to pyannote `community-1`.
@@ -207,7 +210,8 @@
 //! - macOS defaults to the system Accelerate framework
 //! - non-macOS `x86_64` defaults to statically linked Intel MKL
 //! - other platforms default to statically linked OpenBLAS and need a C and Fortran toolchain
-//! - no-default builds must enable exactly one of `intel-mkl`, `openblas-static`, or `openblas-system`
+//! - no-default builds must enable exactly one of `intel-mkl`, `openblas-static`, or
+//!   `openblas-system`
 //!
 //! ```toml
 //! speakrs = { version = "0.5", default-features = false, features = ["online", "intel-mkl"] }
@@ -255,13 +259,25 @@ pub use models::ModelBundle;
 #[cfg_attr(docsrs, doc(cfg(feature = "online")))]
 pub use models::ModelManager;
 pub use pipeline::{
-    AhcConfig, BatchInput, BinarizeConfig, DiarizationPipeline, DiarizationResult,
-    OwnedDiarizationPipeline, PipelineBuilder, PipelineConfig, PipelineError, QueueError,
-    QueueReceiver, QueueReceiverIter, QueueSender, QueuedDiarizationJobId,
-    QueuedDiarizationRequest, QueuedDiarizationResult, VbxConfig,
+    AhcConfig,
+    BatchInput,
+    BinarizeConfig,
+    DiarizationPipeline,
+    DiarizationResult,
+    OwnedDiarizationPipeline,
+    PipelineBuilder,
+    PipelineConfig,
+    PipelineError,
+    QueueError,
+    QueueReceiver,
+    QueueReceiverIter,
+    QueueSender,
+    QueuedDiarizationJobId,
+    QueuedDiarizationRequest,
+    QueuedDiarizationResult,
+    VbxConfig,
 };
-pub use segment::Segment;
-
 #[cfg(feature = "_metrics")]
 #[cfg_attr(docsrs, doc(cfg(feature = "_metrics")))]
 pub use powerset::PowersetMapping;
+pub use segment::Segment;

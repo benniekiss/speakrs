@@ -3,8 +3,7 @@ use std::path::PathBuf;
 use clap::{Parser, Subcommand};
 use color_eyre::eyre::Result;
 use tracing_subscriber::EnvFilter;
-use xtask::commands;
-use xtask::commands::diarize::DiarizeMode;
+use xtask::{commands, commands::diarize::DiarizeMode};
 
 #[derive(Parser)]
 #[command(name = "xtask", about = "Development commands for speakrs")]
@@ -58,7 +57,8 @@ enum Command {
     },
     /// Profile ORT embedding inference strategies
     ProfileOrtEmbedding {
-        /// Mode: borrow, owned, prealloc, stream-borrow, stream-owned, stream-prealloc, stream-batched
+        /// Mode: borrow, owned, prealloc, stream-borrow, stream-owned, stream-prealloc,
+        /// stream-batched
         mode: String,
         /// Path to WAV file
         wav_path: PathBuf,
@@ -310,67 +310,6 @@ impl BenchCmd {
 }
 
 #[derive(Subcommand)]
-enum DstackCmd {
-    /// Run a GPU benchmark
-    Bench {
-        /// Run name
-        name: String,
-        #[arg(long, default_value = "voxconverse-dev")]
-        dataset: String,
-        #[arg(long, value_delimiter = ',')]
-        impls: Vec<String>,
-        #[arg(long)]
-        max_files: Option<u32>,
-        #[arg(long)]
-        max_minutes: Option<u32>,
-        /// Reuse an existing fleet pod
-        #[arg(long, short = 'R')]
-        reuse: bool,
-        /// Submit and exit immediately
-        #[arg(long, short = 'd')]
-        detach: bool,
-    },
-    /// Run GPU benchmarks in parallel
-    #[command(alias = "bp")]
-    BenchParallel {
-        /// Run name prefix
-        name: String,
-        /// Datasets to run (comma-separated or "all")
-        #[arg(long, value_delimiter = ',', default_value = "all")]
-        dataset: Vec<String>,
-        #[arg(long, value_delimiter = ',')]
-        impls: Vec<String>,
-        #[arg(long)]
-        max_files: Option<u32>,
-        #[arg(long)]
-        max_minutes: Option<u32>,
-        /// Reuse an existing fleet pod
-        #[arg(long, short = 'R')]
-        reuse: bool,
-    },
-    /// Start a reusable GPU fleet
-    Fleet,
-    /// Reattach to a running task
-    Attach { name: String },
-    /// Stream logs from a running task
-    Logs { name: String },
-    /// Show status of all dstack runs
-    Ps,
-    /// Stop a dstack run or fleet
-    #[command(alias = "kill")]
-    Stop { name: String },
-    /// Start interactive GPU dev environment
-    Dev,
-    /// Download benchmark results from S3
-    Download { name: String },
-    /// Delete a path from the S3 bucket
-    Delete {
-        /// S3 path to delete
-        path: String,
-    },
-}
-
-#[derive(Subcommand)]
 enum DatasetCmd {
     /// Download one or all datasets
     Ensure {
@@ -388,8 +327,10 @@ enum DatasetCmd {
 
 impl DatasetCmd {
     fn run(self) -> Result<()> {
-        use xtask::cmd::project_root;
-        use xtask::datasets::{self, S5cmd};
+        use xtask::{
+            cmd::project_root,
+            datasets::{self, S5cmd},
+        };
 
         let base_dir = project_root().join("fixtures/datasets");
 

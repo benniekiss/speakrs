@@ -1,14 +1,21 @@
 use ndarray::Array2;
 use tracing::debug;
 
-use crate::binarize::binarize;
-use crate::clustering::plda::PldaTransform;
-use crate::reconstruct::Reconstructor;
-use crate::segment::merge_segments;
-
-use super::config::{PipelineConfig, ReconstructMethod};
-use super::types::{
-    ChunkSpeakerClusters, DiarizationResult, DiscreteDiarization, InferenceArtifacts, PipelineError,
+use super::{
+    config::{PipelineConfig, ReconstructMethod},
+    types::{
+        ChunkSpeakerClusters,
+        DiarizationResult,
+        DiscreteDiarization,
+        InferenceArtifacts,
+        PipelineError,
+    },
+};
+use crate::{
+    binarize::binarize,
+    clustering::plda::PldaTransform,
+    reconstruct::Reconstructor,
+    segment::merge_segments,
 };
 
 /// Run clustering and reconstruction on pre-computed inference artifacts

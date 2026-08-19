@@ -1,20 +1,23 @@
-use std::collections::HashMap;
-use std::path::{Path, PathBuf};
+use std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+};
 
 use color_eyre::eyre::Result;
 
-use super::run::DerBenchEnv;
-use super::validate::selected_preflight_implementations;
-use super::{DerArgs, PREFLIGHT_TIMEOUT, PyannoteBatchSizes};
-use crate::cmd::wav_duration_seconds;
-use crate::path::file_stem_string;
+use super::{
+    DerArgs,
+    PREFLIGHT_TIMEOUT,
+    PyannoteBatchSizes,
+    run::DerBenchEnv,
+    validate::selected_preflight_implementations,
+};
+use crate::{cmd::wav_duration_seconds, path::file_stem_string};
 
 pub(super) fn preflight_check(
     root: &Path,
     file: &(PathBuf, PathBuf),
     models_dir: &Path,
-    seg_model: &Path,
-    emb_model: &Path,
     args: &DerArgs,
     pyannote_batch_sizes: PyannoteBatchSizes,
 ) -> Result<HashMap<String, String>> {
@@ -24,7 +27,7 @@ pub(super) fn preflight_check(
     println!();
     println!("=== Pre-flight check ({stem}, {duration:.0}s) ===");
 
-    let env = DerBenchEnv::new(root, models_dir, seg_model, emb_model, pyannote_batch_sizes);
+    let env = DerBenchEnv::new(root, models_dir, pyannote_batch_sizes);
     let implementations = selected_preflight_implementations(&args.impls);
     let wav_paths = [wav_path.as_path()];
     let mut failures = HashMap::new();
@@ -35,12 +38,7 @@ pub(super) fn preflight_check(
             continue;
         }
 
-        match env.run_impl(
-            &impl_type,
-            &wav_paths,
-            &[(wav_path.clone(), PathBuf::new())],
-            PREFLIGHT_TIMEOUT,
-        ) {
+        match env.run_impl(&impl_type, &wav_paths, PREFLIGHT_TIMEOUT) {
             Ok(batch_output)
                 if batch_output
                     .per_file_rttm

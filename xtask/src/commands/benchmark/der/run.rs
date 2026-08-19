@@ -1,17 +1,20 @@
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::Duration;
+use std::{
+    collections::HashMap,
+    fs,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 use color_eyre::eyre::Result;
 
-use super::validate::selected_implementations;
 use super::{
-    BatchCommandRunner, DerAccumulation, DerImplResult, ImplType, PyannoteBatchSizes,
-    PyannoteRsFileRunner,
+    BatchCommandRunner,
+    DerAccumulation,
+    DerImplResult,
+    ImplType,
+    PyannoteBatchSizes,
+    validate::selected_implementations,
 };
-use crate::cmd::run_cmd;
 
 pub(super) type DerResults = (
     Vec<(&'static str, ImplType)>,
@@ -23,8 +26,6 @@ pub(super) struct DerRunContext<'a> {
     pub run_dir: &'a Path,
     pub files: &'a [(PathBuf, PathBuf)],
     pub models_dir: &'a Path,
-    pub seg_model: &'a Path,
-    pub emb_model: &'a Path,
     pub impls: &'a [String],
     pub total_audio_seconds: f64,
     pub preflight_failures: &'a HashMap<String, String>,
@@ -35,8 +36,7 @@ pub(super) struct DerRunContext<'a> {
 pub(super) struct DerBenchEnv<'a> {
     root: &'a Path,
     models_dir: &'a Path,
-    seg_model: &'a Path,
-    emb_model: &'a Path,
+
     pyannote_batch_sizes: PyannoteBatchSizes,
 }
 
@@ -44,15 +44,11 @@ impl<'a> DerBenchEnv<'a> {
     pub(super) fn new(
         root: &'a Path,
         models_dir: &'a Path,
-        seg_model: &'a Path,
-        emb_model: &'a Path,
         pyannote_batch_sizes: PyannoteBatchSizes,
     ) -> Self {
         Self {
             root,
             models_dir,
-            seg_model,
-            emb_model,
             pyannote_batch_sizes,
         }
     }
@@ -61,32 +57,10 @@ impl<'a> DerBenchEnv<'a> {
         self.root.join("target/release/xtask")
     }
 
-    fn pyannote_rs_binary(&self) -> PathBuf {
-        self.root
-            .join("scripts/pyannote_rs_bench/target/release/diarize-pyannote-rs")
-    }
-
-    fn fluidaudio_bench_dir(&self) -> PathBuf {
-        self.root.join("scripts/fluidaudio-bench")
-    }
-
-    fn speakerkit_bench_dir(&self) -> PathBuf {
-        self.root.join("scripts/speakerkit-bench")
-    }
-
-    fn build_swift_bench(&self, package_dir: &Path) -> Result<()> {
-        run_cmd(
-            Command::new("swift")
-                .args(["build", "-c", "release", "--package-path"])
-                .arg(package_dir),
-        )
-    }
-
     pub(super) fn run_impl(
         &self,
         impl_type: &ImplType,
         wav_paths: &[&Path],
-        files: &[(PathBuf, PathBuf)],
         timeout: Duration,
     ) -> Result<super::super::runner::BatchRunOutput> {
         match impl_type {
@@ -97,30 +71,6 @@ impl<'a> DerBenchEnv<'a> {
                 wav_paths,
             )
             .run_with_retries(timeout),
-            ImplType::FluidAudioBench => {
-                let bench_dir = self.fluidaudio_bench_dir();
-                self.build_swift_bench(&bench_dir)?;
-                BatchCommandRunner::binary(
-                    &bench_dir.join(".build/release/fluidaudio-bench"),
-                    wav_paths,
-                )
-                .run_with_retries(timeout)
-            },
-            ImplType::SpeakerKitBench => {
-                let bench_dir = self.speakerkit_bench_dir();
-                self.build_swift_bench(&bench_dir)?;
-                BatchCommandRunner::binary(
-                    &bench_dir.join(".build/release/speakerkit-bench"),
-                    wav_paths,
-                )
-                .run_with_retries(timeout)
-            },
-            ImplType::PyannoteRs => PyannoteRsFileRunner::new(
-                self.pyannote_rs_binary(),
-                self.seg_model.to_path_buf(),
-                self.emb_model.to_path_buf(),
-            )
-            .run(files),
             ImplType::Pyannote(device) => BatchCommandRunner::pyannote(
                 self.root,
                 device,
@@ -144,32 +94,6 @@ impl<'a> DerBenchEnv<'a> {
                 }
                 let _ = mode;
                 None
-            },
-            ImplType::FluidAudioBench => {
-                (!self.fluidaudio_bench_dir().join("Package.swift").exists())
-                    .then(|| "scripts/fluidaudio-bench/Package.swift not found".to_string())
-            },
-            ImplType::SpeakerKitBench => {
-                (!self.speakerkit_bench_dir().join("Package.swift").exists())
-                    .then(|| "scripts/speakerkit-bench/Package.swift not found".to_string())
-            },
-            ImplType::PyannoteRs => {
-                let pyannote_rs_binary = self.pyannote_rs_binary();
-                if !pyannote_rs_binary.exists() {
-                    Some("pyannote-rs bench binary not found".to_string())
-                } else if !self.seg_model.exists() {
-                    Some(format!(
-                        "segmentation model not found: {}",
-                        self.seg_model.display()
-                    ))
-                } else if !self.emb_model.exists() {
-                    Some(format!(
-                        "embedding model not found: {}",
-                        self.emb_model.display()
-                    ))
-                } else {
-                    None
-                }
             },
         }
     }
@@ -201,13 +125,7 @@ pub(crate) fn write_impl_result(
 }
 
 pub(super) fn run_der_implementations(ctx: &DerRunContext<'_>) -> Result<DerResults> {
-    let env = DerBenchEnv::new(
-        ctx.root,
-        ctx.models_dir,
-        ctx.seg_model,
-        ctx.emb_model,
-        ctx.pyannote_batch_sizes,
-    );
+    let env = DerBenchEnv::new(ctx.root, ctx.models_dir, ctx.pyannote_batch_sizes);
     let implementations = selected_implementations(ctx.impls);
     let wav_paths: Vec<&Path> = ctx.files.iter().map(|(wav, _)| wav.as_path()).collect();
     let mut all_results = HashMap::new();
@@ -234,7 +152,7 @@ pub(super) fn run_der_implementations(ctx: &DerRunContext<'_>) -> Result<DerResu
             continue;
         }
 
-        let benchmark_output = match env.run_impl(impl_type, &wav_paths, ctx.files, batch_timeout) {
+        let benchmark_output = match env.run_impl(impl_type, &wav_paths, batch_timeout) {
             Ok(result) => result,
             Err(err) => {
                 println!("  → failed: {err}");
@@ -286,17 +204,4 @@ pub(super) fn run_der_implementations(ctx: &DerRunContext<'_>) -> Result<DerResu
     }
 
     Ok((implementations, all_results))
-}
-
-pub(crate) fn ensure_pyannote_rs_emb_model(path: &Path) -> Result<()> {
-    if path.exists() {
-        return Ok(());
-    }
-    println!("Downloading pyannote-rs embedding model...");
-    run_cmd(
-        Command::new("curl")
-            .args(["-L", "-o"])
-            .arg(path)
-            .arg("https://github.com/thewh1teagle/pyannote-rs/releases/download/v0.1.0/wespeaker_en_voxceleb_CAM++.onnx"),
-    )
 }

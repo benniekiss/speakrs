@@ -48,9 +48,10 @@ pub fn logsumexp_f64(values: &ArrayView1<f64>) -> f64 {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use approx::assert_abs_diff_eq;
     use ndarray::array;
+
+    use super::*;
 
     #[test]
     fn cosine_similarity_identical_vectors() {

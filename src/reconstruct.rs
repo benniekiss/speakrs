@@ -1,7 +1,10 @@
 use ndarray::{Array2, s};
 
 use crate::pipeline::{
-    ChunkSpeakerClusters, DecodedSegmentations, DiscreteDiarization, FrameActivations,
+    ChunkSpeakerClusters,
+    DecodedSegmentations,
+    DiscreteDiarization,
+    FrameActivations,
     SpeakerCountTrack,
 };
 

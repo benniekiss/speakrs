@@ -1,11 +1,8 @@
 mod support;
 
-use std::fs;
-use std::path::Path;
+use std::{fs, path::Path};
 
-use speakrs::segment::Segment;
-use speakrs::{ExecutionMode, OwnedDiarizationPipeline};
-
+use speakrs::{ExecutionMode, OwnedDiarizationPipeline, segment::Segment};
 use support::{ExampleResult, load_wav_samples};
 
 struct TranscriptRow {

@@ -1,11 +1,12 @@
-use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::{
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 use color_eyre::eyre::{Result, bail};
 use tempfile::TempDir;
 
-use crate::cmd::run_cmd;
-use crate::convert::convert_to_16k_mono;
+use crate::{cmd::run_cmd, convert::convert_to_16k_mono};
 
 pub struct PreparedAudio {
     wav_path: PathBuf,

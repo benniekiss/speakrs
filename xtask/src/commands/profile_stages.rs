@@ -1,11 +1,12 @@
 use color_eyre::eyre::{Result, bail, ensure};
 use ndarray::{Array3, s};
-use speakrs::PowersetMapping;
-use speakrs::inference::{EmbeddingModel, SegmentationModel};
-use speakrs::pipeline::SEGMENTATION_STEP_SECONDS;
+use speakrs::{
+    PowersetMapping,
+    inference::{EmbeddingModel, SegmentationModel},
+    pipeline::SEGMENTATION_STEP_SECONDS,
+};
 
-use crate::commands::profile_support;
-use crate::wav;
+use crate::{commands::profile_support, wav};
 
 pub fn run(mode: &str, wav_path: &str, iterations: usize, log_every: usize) -> Result<()> {
     let log_every = if log_every == 0 {

@@ -2,9 +2,8 @@ use std::ops::Deref;
 
 use ndarray::{Array2, Array3, s};
 
-use crate::powerset::PowersetMapping;
-
 use super::ChunkLayout;
+use crate::powerset::PowersetMapping;
 
 pub(in crate::pipeline) struct PendingEmbedding<'a> {
     pub chunk_idx: usize,

@@ -155,10 +155,10 @@ fn child_pair(children: &[(usize, usize)], observations: usize, node_idx: usize)
 
 #[cfg(test)]
 mod tests {
+    use std::{fs::File, path::PathBuf};
+
     use ndarray::{Array1, Array2, array};
     use ndarray_npy::ReadNpyExt;
-    use std::fs::File;
-    use std::path::PathBuf;
 
     use super::*;
 

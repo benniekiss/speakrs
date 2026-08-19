@@ -1,12 +1,8 @@
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
 use std::time::Duration;
 
 use color_eyre::eyre::{Result, bail};
 
-use super::runner::SingleRunOutput;
-use super::*;
+use super::{runner::SingleRunOutput, *};
 
 struct RunResult {
     name: String,
@@ -41,32 +37,17 @@ impl RunResult {
 
 enum CompareOutcome {
     Completed(RunResult),
-    Skipped { name: String, reason: String },
     Failed { name: String, reason: String },
 }
 
-enum CompareRunner {
-    Command(CommandSpec),
-    FluidAudio {
-        fluidaudio_path: PathBuf,
-        wav_path: String,
-        timeout: Duration,
-    },
+struct CompareRunner {
+    spec: CommandSpec,
 }
 
 impl CompareRunner {
     fn run_once(&self) -> Result<SingleRunOutput> {
-        match self {
-            Self::Command(command_spec) => {
-                let mut command = command_spec.build_command();
-                capture_benchmark_cmd(&mut command, Duration::from_secs(30 * 60))
-            },
-            Self::FluidAudio {
-                fluidaudio_path,
-                wav_path,
-                timeout,
-            } => run_fluidaudio_impl(fluidaudio_path, wav_path, *timeout),
-        }
+        let mut command = self.spec.build_command();
+        capture_benchmark_cmd(&mut command, Duration::from_secs(30 * 60))
     }
 }
 
@@ -106,24 +87,13 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
     println!();
     println!("=== Building binaries ===");
     cargo_build_xtask(&["coreml".to_string()])?;
-    let pyannote_rs_build = run_cmd(
-        Command::new("cargo")
-            .args(["build", "--release"])
-            .current_dir(root.join("scripts/pyannote_rs_bench")),
-    );
 
     let audio_seconds = wav_duration_seconds(wav)?;
-    let models_dir = root.join("fixtures/models");
-    let seg_model = models_dir.join("segmentation-3.0.onnx");
-    let emb_model = models_dir.join("wespeaker_en_voxceleb_CAM++.onnx");
-    super::der::ensure_pyannote_rs_emb_model(&emb_model)?;
 
     println!();
     println!("=== Running benchmarks ===");
 
     let speakrs_binary = root.join("target/release/xtask");
-    let pyannote_rs_binary =
-        root.join("scripts/pyannote_rs_bench/target/release/diarize-pyannote-rs");
 
     let implementations: Vec<(&str, Vec<String>)> = vec![
         (
@@ -152,9 +122,6 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
         ),
     ];
 
-    let fluidaudio_path = find_fluidaudio();
-    let pyannote_rs_available = pyannote_rs_build.is_ok() && pyannote_rs_binary.exists();
-
     let mut results: Vec<CompareOutcome> = Vec::new();
     let mut compare_recorder = CompareRecorder {
         results: &mut results,
@@ -163,43 +130,10 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
     };
 
     for (name, command_args) in &implementations {
-        let runner =
-            CompareRunner::Command(CommandSpec::from_argv(command_args).current_dir(&root));
-        compare_recorder.record(name, &runner);
-    }
-
-    if let Some(fluidaudio_path) = &fluidaudio_path {
-        let runner = CompareRunner::FluidAudio {
-            fluidaudio_path: fluidaudio_path.clone(),
-            wav_path: wav_str.to_string(),
-            timeout: Duration::from_secs(30 * 60),
+        let runner = CompareRunner {
+            spec: CommandSpec::from_argv(command_args).current_dir(&root),
         };
-        compare_recorder.record("FluidAudio", &runner);
-    } else {
-        compare_recorder.results.push(CompareOutcome::Skipped {
-            name: "FluidAudio".to_string(),
-            reason: "fluidaudio checkout not found".to_string(),
-        });
-    }
-
-    if pyannote_rs_available {
-        let cmd_args = [
-            pyannote_rs_binary.to_string_lossy().to_string(),
-            wav_str.to_string(),
-            seg_model.to_string_lossy().to_string(),
-            emb_model.to_string_lossy().to_string(),
-        ];
-        let runner = CompareRunner::Command(CommandSpec::from_argv(&cmd_args).current_dir(&root));
-        compare_recorder.record("pyannote-rs", &runner);
-    } else {
-        let reason = pyannote_rs_build
-            .err()
-            .map(|err| format!("pyannote-rs bench build failed: {err}"))
-            .unwrap_or_else(|| "pyannote-rs bench binary not found".to_string());
-        compare_recorder.results.push(CompareOutcome::Skipped {
-            name: "pyannote-rs".to_string(),
-            reason,
-        });
+        compare_recorder.record(name, &runner);
     }
 
     let ref_rttm = results.iter().find_map(|result| match result {
@@ -248,12 +182,6 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
                     run.name, mean_str, min_str, speakers_str, segments_str, parity_str
                 );
             },
-            CompareOutcome::Skipped { name, reason } => {
-                println!(
-                    "{:<name_width$} {:>9} {:>9} {:>9} {:>9} {:>10}  skipped ({reason})",
-                    name, "—", "—", "—", "—", "N/A"
-                );
-            },
             CompareOutcome::Failed { name, reason } => {
                 println!(
                     "{:<name_width$} {:>9} {:>9} {:>9} {:>9} {:>10}  failed ({reason})",
@@ -261,17 +189,6 @@ pub fn compare(source: &str, runs: u32, warmups: u32) -> Result<()> {
                 );
             },
         }
-    }
-
-    if results.iter().any(|result| {
-        matches!(
-            result,
-            CompareOutcome::Completed(run) if run.name == "pyannote-rs" && run.segments == 0
-        )
-    }) {
-        println!();
-        println!("Note: pyannote-rs returned 0 segments. It only emits segments when");
-        println!("speech→silence transitions occur; continuous speech files produce no output.");
     }
 
     Ok(())
@@ -312,34 +229,6 @@ fn summarize_compare_runs(name: &str, measurements: &[f64], rttm: String) -> Run
     let mean_seconds = measurements.iter().sum::<f64>() / measurements.len() as f64;
     let min_seconds = measurements.iter().copied().fold(f64::INFINITY, f64::min);
     RunResult::new(name, mean_seconds, min_seconds, rttm)
-}
-
-fn run_fluidaudio_impl(
-    fluidaudio_path: &Path,
-    wav_path: &str,
-    timeout: Duration,
-) -> Result<SingleRunOutput> {
-    let json_tmp = std::env::temp_dir().join(format!("fa-{}.json", std::process::id()));
-    let mut benchmark_command = Command::new("swift");
-    benchmark_command
-        .args(["run", "-c", "release", "--package-path"])
-        .arg(fluidaudio_path)
-        .args(["fluidaudiocli", "process"])
-        .arg(wav_path)
-        .args(["--mode", "offline", "--output"])
-        .arg(&json_tmp);
-    let output = capture_benchmark_cmd(&mut benchmark_command, timeout)?;
-
-    if !json_tmp.exists() {
-        bail!("fluidaudio did not produce output JSON");
-    }
-
-    let rttm = fluidaudio::json_to_rttm(&json_tmp, "file1")?;
-    let _ = fs::remove_file(&json_tmp);
-    Ok(SingleRunOutput {
-        elapsed_seconds: output.elapsed_seconds,
-        rttm,
-    })
 }
 
 fn timeline_overlap_pct(ref_rttm: &str, test_rttm: &str) -> Option<f64> {

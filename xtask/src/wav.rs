@@ -1,5 +1,7 @@
-use std::fs::File;
-use std::io::{BufReader, Read, Seek, SeekFrom};
+use std::{
+    fs::File,
+    io::{BufReader, Read, Seek, SeekFrom},
+};
 
 use color_eyre::eyre::{Result, bail, ensure};
 

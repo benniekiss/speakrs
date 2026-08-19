@@ -2,9 +2,21 @@ use ndarray::{Array2, s};
 use ort::value::TensorRef;
 
 use super::{
-    BatchPhaseTiming, EmbeddingModel, FBANK_FEATURES, FBANK_FRAMES, MULTI_MASK_BATCH_SIZE,
-    MaskedEmbeddingInput, NUM_SPEAKERS, PRIMARY_BATCH_SIZE, SPLIT_TAIL_BATCH_SIZE, SplitTailInput,
-    array2_from_shape_vec, array2_slice_mut, array3_slice_mut, first_output, select_mask,
+    BatchPhaseTiming,
+    EmbeddingModel,
+    FBANK_FEATURES,
+    FBANK_FRAMES,
+    MULTI_MASK_BATCH_SIZE,
+    MaskedEmbeddingInput,
+    NUM_SPEAKERS,
+    PRIMARY_BATCH_SIZE,
+    SPLIT_TAIL_BATCH_SIZE,
+    SplitTailInput,
+    array2_from_shape_vec,
+    array2_slice_mut,
+    array3_slice_mut,
+    first_output,
+    select_mask,
 };
 
 impl EmbeddingModel {

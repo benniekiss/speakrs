@@ -1,12 +1,12 @@
-use std::fs;
-use std::path::Path;
-use std::process::Command;
+use std::{fs, path::Path, process::Command};
 
 use color_eyre::eyre::Result;
 
-use crate::cmd::run_cmd;
-use crate::convert::{convert_to_16k_mono, textgrid_to_rttm};
-use crate::path::file_stem_string;
+use crate::{
+    cmd::run_cmd,
+    convert::{convert_to_16k_mono, textgrid_to_rttm},
+    path::file_stem_string,
+};
 
 /// AliMeeting eval set -- Mandarin meetings with high overlap
 /// Far-field audio + TextGrid from OpenSLR

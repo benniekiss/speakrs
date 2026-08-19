@@ -1,7 +1,4 @@
-use std::error::Error;
-use std::ffi::OsStr;
-use std::fs;
-use std::path::Path;
+use std::{error::Error, ffi::OsStr, fs, path::Path};
 
 pub type ExampleResult<T> = Result<T, Box<dyn Error + Send + Sync>>;
 

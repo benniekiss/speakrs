@@ -1,7 +1,9 @@
 use ndarray::{Array1, Array2, Array3};
-use ort::memory::Allocator;
-use ort::session::{HasSelectedOutputs, OutputSelector, RunOptions};
-use ort::value::Tensor;
+use ort::{
+    memory::Allocator,
+    session::{HasSelectedOutputs, OutputSelector, RunOptions},
+    value::Tensor,
+};
 
 pub(super) fn array1_slice<'a>(
     array: &'a Array1<f32>,

@@ -2,11 +2,16 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use color_eyre::eyre::Result;
-use xtask::commands::benchmark::{
-    GpuBenchmarkSuiteConfig, PyannoteBatchSizes, gpu_impls, run_gpu_benchmark_suite,
-    validate_gpu_impls,
+use xtask::{
+    commands::benchmark::{
+        GpuBenchmarkSuiteConfig,
+        PyannoteBatchSizes,
+        gpu_impls,
+        run_gpu_benchmark_suite,
+        validate_gpu_impls,
+    },
+    datasets,
 };
-use xtask::datasets;
 
 #[derive(Parser)]
 #[command(name = "speakrs-bm", about = "GPU benchmark runner")]

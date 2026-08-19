@@ -1,18 +1,17 @@
-use std::collections::HashMap;
-use std::fs;
-use std::path::{Path, PathBuf};
-use std::process::Command;
-use std::time::Duration;
+use std::{collections::HashMap, fs, path::PathBuf, time::Duration};
 
 use color_eyre::eyre::{Result, bail};
-
-use super::*;
 use preflight::preflight_check;
 use run::{DerRunContext, run_der_implementations};
 use validate::{
-    der_build_features, handle_list_requests, resolve_eval_datasets, validate_impls,
+    der_build_features,
+    handle_list_requests,
+    resolve_eval_datasets,
+    validate_impls,
     validate_single_file_mode,
 };
+
+use super::*;
 
 mod preflight;
 pub(super) mod run;
@@ -57,9 +56,6 @@ pub(super) const IMPL_REGISTRY: &[(&str, &str, &str, ImplType)] = &[
         ImplType::Speakrs("migraphx"),
     ),
     ("cpu", "scpu", "speakrs CPU", ImplType::Speakrs("cpu")),
-    ("fluidaudio", "fa", "FluidAudio", ImplType::FluidAudioBench),
-    ("speakerkit", "sk", "SpeakerKit", ImplType::SpeakerKitBench),
-    ("pyannote-rs", "prs", "pyannote-rs", ImplType::PyannoteRs),
 ];
 
 pub struct DerArgs {
@@ -74,10 +70,6 @@ pub struct DerArgs {
     pub seg_batch_size: Option<u32>,
     pub emb_batch_size: Option<u32>,
     pub sleep_between: Option<u64>,
-}
-
-pub(crate) fn ensure_pyannote_rs_emb_model(path: &Path) -> Result<()> {
-    run::ensure_pyannote_rs_emb_model(path)
 }
 
 pub fn der(args: DerArgs) -> Result<()> {
@@ -123,25 +115,7 @@ pub fn der(args: DerArgs) -> Result<()> {
     let build_features = der_build_features(impls);
     cargo_build_xtask(&build_features)?;
 
-    let needs_pyannote_rs =
-        impls.is_empty() || impls.iter().any(|impl_id| impl_id == "pyannote-rs");
-    if needs_pyannote_rs
-        && let Err(err) = run_cmd(
-            Command::new("cargo")
-                .args(["build", "--release"])
-                .current_dir(root.join("scripts/pyannote_rs_bench")),
-        )
-    {
-        eprintln!("warning: pyannote-rs bench build failed (skipping): {err}");
-    }
-
     let models_dir = root.join("fixtures/models");
-    let seg_model = models_dir.join("segmentation-3.0.onnx");
-    let emb_model = models_dir.join("wespeaker_en_voxceleb_CAM++.onnx");
-    if needs_pyannote_rs {
-        ensure_pyannote_rs_emb_model(&emb_model)?;
-    }
-
     let metadata = BenchmarkMetadata::collect();
 
     let eval_sets: Vec<(String, Vec<(PathBuf, PathBuf)>)> = if single_file_mode {
@@ -191,8 +165,6 @@ pub fn der(args: DerArgs) -> Result<()> {
             &root,
             first_file,
             &models_dir,
-            &seg_model,
-            &emb_model,
             &DerArgs {
                 dataset_id: dataset_id.clone(),
                 file: file.clone(),
@@ -246,8 +218,6 @@ pub fn der(args: DerArgs) -> Result<()> {
             run_dir: &run_dir,
             files,
             models_dir: &models_dir,
-            seg_model: &seg_model,
-            emb_model: &emb_model,
             impls,
             total_audio_seconds,
             preflight_failures: &preflight_failures,

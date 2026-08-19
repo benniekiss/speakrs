@@ -4,7 +4,11 @@ use ndarray::Array2;
 use ort::session::Session;
 
 use crate::inference::{
-    ExecutionMode, ModelLoadError, available_threads, ensure_ort_ready, with_execution_mode,
+    ExecutionMode,
+    ModelLoadError,
+    available_threads,
+    ensure_ort_ready,
+    with_execution_mode,
 };
 mod run;
 mod tensor;

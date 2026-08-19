@@ -28,15 +28,10 @@ compile_error!(
 #[cfg(all(feature = "intel-mkl", not(target_arch = "x86_64")))]
 compile_error!("the `intel-mkl` feature is only supported on x86_64 targets");
 
-#[cfg(feature = "intel-mkl")]
-pub(crate) use ndarray_linalg_mkl::{Eigh, Inverse, UPLO, error::LinalgError};
-
-#[cfg(feature = "openblas-static")]
-pub(crate) use ndarray_linalg_static::{Eigh, Inverse, UPLO, error::LinalgError};
-
-#[cfg(feature = "openblas-system")]
-pub(crate) use ndarray_linalg_system::{Eigh, Inverse, UPLO, error::LinalgError};
-
+// `ndarray-linalg` intentionally leaves backend selection to its consumers.
+// On macOS, keep the platform framework in the link graph for the default backend.
+#[cfg(all(feature = "default-linalg", target_os = "macos"))]
+use accelerate_src as _;
 #[cfg(all(
     feature = "default-linalg",
     not(any(
@@ -46,11 +41,12 @@ pub(crate) use ndarray_linalg_system::{Eigh, Inverse, UPLO, error::LinalgError};
     ))
 ))]
 pub(crate) use ndarray_linalg_default::{Eigh, Inverse, UPLO, error::LinalgError};
-
-// `ndarray-linalg` intentionally leaves backend selection to its consumers.
-// On macOS, keep the platform framework in the link graph for the default backend.
-#[cfg(all(feature = "default-linalg", target_os = "macos"))]
-use accelerate_src as _;
+#[cfg(feature = "intel-mkl")]
+pub(crate) use ndarray_linalg_mkl::{Eigh, Inverse, UPLO, error::LinalgError};
+#[cfg(feature = "openblas-static")]
+pub(crate) use ndarray_linalg_static::{Eigh, Inverse, UPLO, error::LinalgError};
+#[cfg(feature = "openblas-system")]
+pub(crate) use ndarray_linalg_system::{Eigh, Inverse, UPLO, error::LinalgError};
 
 #[cfg(test)]
 mod tests {

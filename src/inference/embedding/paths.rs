@@ -1,5 +1,7 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 pub(super) fn batched_model_path(model_path: &Path, batch_size: usize) -> Option<PathBuf> {
     let file_name = model_path.file_name()?.to_str()?;

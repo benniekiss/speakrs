@@ -1,14 +1,15 @@
 use ndarray::{Array2, Array3, ArrayView1, ArrayView2, s};
 use tracing::{debug, trace};
 
-use crate::clustering::ahc::cluster as cluster_ahc;
-use crate::clustering::plda::PldaTransform;
-use crate::clustering::vbx::cluster_vbx;
-use crate::inference::embedding::should_use_clean_mask;
-use crate::utils::cosine_similarity;
-
-use super::config::PipelineConfig;
-use super::types::{ChunkEmbeddings, ChunkSpeakerClusters, DecodedSegmentations};
+use super::{
+    config::PipelineConfig,
+    types::{ChunkEmbeddings, ChunkSpeakerClusters, DecodedSegmentations},
+};
+use crate::{
+    clustering::{ahc::cluster as cluster_ahc, plda::PldaTransform, vbx::cluster_vbx},
+    inference::embedding::should_use_clean_mask,
+    utils::cosine_similarity,
+};
 
 // Avoid embedding speaker masks with fewer than ten active segmentation frames
 // (roughly 200 ms of speech at the segmentation model's frame rate).

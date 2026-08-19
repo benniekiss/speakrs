@@ -1,10 +1,11 @@
-use std::fs;
-use std::path::{Path, PathBuf};
+use std::{
+    fs,
+    path::{Path, PathBuf},
+};
 
 use color_eyre::eyre::Result;
 
-use crate::cmd::wav_duration_seconds;
-use crate::path::file_stem_string;
+use crate::{cmd::wav_duration_seconds, path::file_stem_string};
 
 pub fn discover_files(
     dataset_dir: &Path,

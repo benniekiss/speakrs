@@ -1,17 +1,26 @@
 use ndarray::{Array2, Array3, s};
 use tracing::{debug, trace};
 
-use crate::inference::embedding::EmbeddingModel;
-use crate::powerset::PowersetMapping;
-
-use super::types::{
-    Array3Writer, MultiMaskBatch, MultiMaskTiming, PendingEmbedding, PendingSplitEmbedding,
-    PipelineError, chunk_audio_raw, flush_masked, flush_multi_mask_audio, flush_split,
-    trace_multi_mask_timing,
-};
 use super::{
-    clean_masks, has_enough_embedding_activity, select_speaker_weights, write_speaker_mask_to_slice,
+    clean_masks,
+    has_enough_embedding_activity,
+    select_speaker_weights,
+    types::{
+        Array3Writer,
+        MultiMaskBatch,
+        MultiMaskTiming,
+        PendingEmbedding,
+        PendingSplitEmbedding,
+        PipelineError,
+        chunk_audio_raw,
+        flush_masked,
+        flush_multi_mask_audio,
+        flush_split,
+        trace_multi_mask_timing,
+    },
+    write_speaker_mask_to_slice,
 };
+use crate::{inference::embedding::EmbeddingModel, powerset::PowersetMapping};
 
 pub(super) struct ConcurrentEmbeddingResult {
     pub segmentations: Array3<f32>,
@@ -109,7 +118,8 @@ impl<'a> ConcurrentEmbeddingRunner<'a> {
                     flush_split(embedding_model, &pending, &fbanks, &mut Array3Writer(emb))?;
                     pending.clear();
 
-                    // keep the current chunk fbank alive if later speakers in this chunk still need it
+                    // keep the current chunk fbank alive if later speakers in this chunk still need
+                    // it
                     if speaker_idx + 1 < self.num_speakers {
                         let kept_fbank = fbanks.swap_remove(current_fbank_idx);
                         fbanks.clear();
