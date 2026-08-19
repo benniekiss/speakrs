@@ -241,17 +241,14 @@ pub fn run_speakrs_gpu(
     progress_cb: Option<&(dyn Fn(&ProgressUpdate) + Send + Sync)>,
 ) -> Result<BatchRunOutput> {
     use speakrs::inference::{EmbeddingModel, ExecutionMode, SegmentationModel};
-    use speakrs::pipeline::{
-        CUDA_SEGMENTATION_STEP_SECONDS, DiarizationPipeline, FAST_SEGMENTATION_STEP_SECONDS,
-    };
+    use speakrs::pipeline::{DiarizationPipeline, SEGMENTATION_STEP_SECONDS};
 
     use crate::wav;
 
     let execution_mode = ExecutionMode::Cuda;
-    let step = CUDA_SEGMENTATION_STEP_SECONDS;
     let mut seg_model = SegmentationModel::with_mode(
         models_dir.join("segmentation-3.0.onnx"),
-        step as f32,
+        SEGMENTATION_STEP_SECONDS as f32,
         execution_mode,
     )?;
     let mut emb_model = EmbeddingModel::with_mode(

@@ -8,7 +8,7 @@ use crate::models::ModelBundle;
 use crate::powerset::PowersetMapping;
 
 use super::OwnedDiarizationPipeline;
-use super::config::{PipelineConfig, segmentation_step_seconds};
+use super::config::{PipelineConfig, SEGMENTATION_STEP_SECONDS};
 use super::queued::{QueueReceiver, QueueSender};
 use super::types::PipelineError;
 
@@ -72,10 +72,11 @@ impl PipelineBuilder {
         self.mode.validate()?;
 
         let pipeline = self.pipeline.unwrap_or_default();
-        let step = segmentation_step_seconds(self.mode);
-
-        let seg_model =
-            SegmentationModel::with_mode(self.bundle.segmentation_path(), step as f32, self.mode)?;
+        let seg_model = SegmentationModel::with_mode(
+            self.bundle.segmentation_path(),
+            SEGMENTATION_STEP_SECONDS as f32,
+            self.mode,
+        )?;
         let emb_model = EmbeddingModel::with_mode(self.bundle.embedding_path(), self.mode)?;
         let plda = PldaTransform::from_dir(self.bundle.plda_dir())?;
 

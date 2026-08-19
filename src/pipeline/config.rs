@@ -1,5 +1,17 @@
-use crate::inference::ExecutionMode;
 use crate::pipeline::{AhcConfig, BinarizeConfig, VbxConfig};
+
+/// Sliding window length for segmentation model input, in seconds
+pub const SEGMENTATION_WINDOW_SECONDS: f64 = 10.0;
+/// Sliding window step for segmentation, in seconds
+pub const SEGMENTATION_STEP_SECONDS: f64 = 1.0;
+/// Duration of each output frame from the segmentation model, in seconds
+pub const FRAME_DURATION_SECONDS: f64 = 0.0619375;
+/// Hop between consecutive output frames from the segmentation model, in seconds
+pub const FRAME_STEP_SECONDS: f64 = 0.016875;
+
+/// Minimum speaker activity (sum of weights) to run embedding inference.
+/// Speakers below this threshold are skipped because their NaN embedding is filtered out later
+pub(crate) const MIN_SPEAKER_ACTIVITY: f32 = 10.0;
 
 /// How to map cluster assignments back to per-frame speaker activations
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -43,34 +55,3 @@ impl Default for PipelineConfig {
         }
     }
 }
-
-/// Segmentation step size in seconds for the selected execution mode
-pub const fn segmentation_step_seconds(mode: ExecutionMode) -> f64 {
-    match mode {
-        ExecutionMode::CoreMl => COREML_SEGMENTATION_STEP_SECONDS,
-        ExecutionMode::Cuda => CUDA_SEGMENTATION_STEP_SECONDS,
-        ExecutionMode::MiGraphX => CUDA_SEGMENTATION_STEP_SECONDS,
-        ExecutionMode::WebGpu => CUDA_SEGMENTATION_STEP_SECONDS,
-        ExecutionMode::Cpu => SEGMENTATION_STEP_SECONDS,
-    }
-}
-
-/// Sliding window length for segmentation model input, in seconds
-pub const SEGMENTATION_WINDOW_SECONDS: f64 = 10.0;
-/// Default sliding window step for segmentation, in seconds
-pub const SEGMENTATION_STEP_SECONDS: f64 = 1.0;
-/// CoreML step aligned to the 8-frame ResNet stride (96 fbank frames / 8 = 12 ResNet frames).
-/// This is the closest aligned step below 1.0s that still enables chunk embedding.
-pub const COREML_SEGMENTATION_STEP_SECONDS: f64 = 0.96;
-/// CUDA segmentation step, in seconds
-pub const CUDA_SEGMENTATION_STEP_SECONDS: f64 = 1.0;
-/// Step size for fast modes, in seconds
-pub const FAST_SEGMENTATION_STEP_SECONDS: f64 = 2.0;
-/// Duration of each output frame from the segmentation model, in seconds
-pub const FRAME_DURATION_SECONDS: f64 = 0.0619375;
-/// Hop between consecutive output frames from the segmentation model, in seconds
-pub const FRAME_STEP_SECONDS: f64 = 0.016875;
-
-/// Minimum speaker activity (sum of weights) to run embedding inference.
-/// Speakers below this threshold are skipped because their NaN embedding is filtered out later
-pub(crate) const MIN_SPEAKER_ACTIVITY: f32 = 10.0;

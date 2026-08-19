@@ -4,10 +4,8 @@ pub use crate::clustering::ahc::AhcConfig;
 pub use crate::clustering::vbx::VbxConfig;
 pub(crate) use config::MIN_SPEAKER_ACTIVITY;
 pub use config::{
-    COREML_SEGMENTATION_STEP_SECONDS, CUDA_SEGMENTATION_STEP_SECONDS,
-    FAST_SEGMENTATION_STEP_SECONDS, FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, PipelineConfig,
-    ReconstructMethod, SEGMENTATION_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS,
-    segmentation_step_seconds,
+    FRAME_DURATION_SECONDS, FRAME_STEP_SECONDS, PipelineConfig, ReconstructMethod,
+    SEGMENTATION_STEP_SECONDS, SEGMENTATION_WINDOW_SECONDS,
 };
 
 mod types;
@@ -226,9 +224,9 @@ impl<'a> DiarizationPipeline<'a> {
         })
     }
 
-    /// Default segmentation step in seconds (CPU mode)
+    /// Default segmentation step in seconds
     pub fn default_segmentation_step() -> f32 {
-        segmentation_step_seconds(ExecutionMode::Cpu) as f32
+        SEGMENTATION_STEP_SECONDS as f32
     }
 
     pipeline_run_methods!();

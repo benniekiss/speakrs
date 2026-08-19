@@ -134,5 +134,4 @@ The `speakrs-bm` binary uses the same `--impls` syntax with its GPU subset:
 | CLI ID | Alias | Description |
 |--------|-------|-------------|
 | `speakrs` | `sg` | speakrs CUDA (fused, 1s step) |
-| `speakrs-fast` | `sgf` | speakrs CUDA Fast (fused, 2s step) |
 | `pyannote` | `pg` | pyannote CUDA |

@@ -7,10 +7,7 @@ use std::time::Instant;
 use color_eyre::eyre::{Result, bail, ensure};
 use speakrs::inference::ExecutionMode;
 use speakrs::inference::{EmbeddingModel, SegmentationModel};
-use speakrs::pipeline::{
-    COREML_SEGMENTATION_STEP_SECONDS, CUDA_SEGMENTATION_STEP_SECONDS, DiarizationPipeline,
-    SEGMENTATION_STEP_SECONDS,
-};
+use speakrs::pipeline::{DiarizationPipeline, SEGMENTATION_STEP_SECONDS};
 
 use crate::wav;
 
@@ -42,15 +39,6 @@ impl SpeakrsMode {
             Self::Coreml => ExecutionMode::CoreMl,
             Self::Cuda => ExecutionMode::Cuda,
             Self::Webgpu => ExecutionMode::WebGpu,
-        }
-    }
-
-    fn step_seconds(self) -> f64 {
-        match self {
-            Self::Coreml => COREML_SEGMENTATION_STEP_SECONDS,
-            Self::Cuda => CUDA_SEGMENTATION_STEP_SECONDS,
-            Self::Webgpu => CUDA_SEGMENTATION_STEP_SECONDS,
-            Self::Cpu => SEGMENTATION_STEP_SECONDS,
         }
     }
 }
@@ -116,11 +104,10 @@ pub fn run(mode: DiarizeMode, models_dir: Option<PathBuf>, wav_files: Vec<PathBu
             let models_dir = models_dir.unwrap_or_else(default_models_dir);
             let models_dir_elapsed = models_dir_start.elapsed();
 
-            let step = speakrs_mode.step_seconds();
             let seg_model_start = Instant::now();
             let mut seg_model = SegmentationModel::with_mode(
                 models_dir.join("segmentation-3.0.onnx"),
-                step as f32,
+                SEGMENTATION_STEP_SECONDS as f32,
                 execution_mode,
             )?;
             let seg_model_elapsed = seg_model_start.elapsed();

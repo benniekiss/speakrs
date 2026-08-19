@@ -109,21 +109,10 @@ let result = pipeline.run(&audio)?;
 | Mode | Backend | Step | Use it for |
 |------|---------|------|------------|
 | `cpu` | ONNX Runtime CPU | 1s | CPU runs and widest compatibility |
-| `coreml` | ORT CoreML | 1s | macOS with CoreML acceleration |
-| `coreml-fast` | ORT CoreML | 2s | macOS with CoreML acceleration and higher throughput |
+| `coreml` | ORT CoreML | 0.96s | macOS with CoreML acceleration |
 | `cuda` | ONNX Runtime CUDA | 1s | NVIDIA GPU |
-| `cuda-fast` | ONNX Runtime CUDA | 2s | NVIDIA GPU for higher throughput |
 | `migraphx` | ONNX Runtime MIGraphX | 1s | AMD GPU |
 | `webgpu` | ONNX Runtime WebGPU | 1s | Cross-platform GPU acceleration |
-
-The `*-fast` modes move the segmentation window every 2 seconds instead of
-every 1 second. That gives the pipeline fewer windows to score, so it can be much faster, but speaker changes
-may land a little farther from the exact word or pause where they happened.
-
-Use the 1 second modes when you care about exactly when each speaker starts and stops,
-short clips, interviews with quick back-and-forth, or audio you plan to subtitle or edit. The 2 second modes
-are usually worth trying for long recordings where speed matters more than exact speaker-change times, such as
-meetings, lectures, podcasts, or bulk archives.
 
 ## Benchmarks
 
@@ -132,10 +121,8 @@ VoxConverse dev, collar=0ms:
 | Platform | Implementation | DER | Time | RTFx |
 |----------|----------------|-----|------|------|
 | Apple M4 Pro | `speakrs` `coreml` | **7.1%** | 138s | 529x |
-| Apple M4 Pro | `speakrs` `coreml-fast` | 7.4% | 169s | 434x |
 | Apple M4 Pro | pyannote community-1 (MPS) | 7.2% | 2999s | 24x |
 | RTX 4090 | `speakrs` `cuda` | **7.0%** | 1236s | 59x |
-| RTX 4090 | `speakrs` `cuda-fast` | 7.4% | 604s | **121x** |
 | RTX 4090 | pyannote community-1 (CUDA) | 7.2% | 2312s | 32x |
 
 On VoxConverse test, `coreml` matches pyannote at 11.1% DER and runs at

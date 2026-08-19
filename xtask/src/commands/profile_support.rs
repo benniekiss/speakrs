@@ -4,7 +4,6 @@ use color_eyre::eyre::{Result, eyre};
 use ndarray::{Array1, Array2, Array3, ArrayView2, s};
 use speakrs::PowersetMapping;
 use speakrs::inference::SegmentationModel;
-use speakrs::pipeline::SEGMENTATION_STEP_SECONDS;
 
 pub(crate) fn decode_windows(
     raw_windows: Vec<Array2<f32>>,
@@ -53,8 +52,7 @@ pub(crate) fn chunk_audio<'a>(
     seg_model: &SegmentationModel,
     chunk_idx: usize,
 ) -> &'a [f32] {
-    let step_samples = (SEGMENTATION_STEP_SECONDS * seg_model.sample_rate() as f64) as usize;
-    let start = chunk_idx * step_samples;
+    let start = chunk_idx * seg_model.step_samples();
     let end = (start + seg_model.window_samples()).min(audio.len());
     if start < audio.len() {
         &audio[start..end]
